@@ -86,11 +86,10 @@ mod imp {
             
             // List available schemas for debugging
             error!("Available schemas:");
-            if let Some(non_relocatable) = schema_source.list_schemas(true, false) {
-                for schema in non_relocatable {
-                    if schema.contains("Amberol") || schema.contains("bassi") {
-                        error!("  - {}", schema);
-                    }
+            let (non_relocatable, relocatable) = schema_source.list_schemas(true);
+            for schema in non_relocatable.iter().chain(relocatable.iter()) {
+                if schema.contains("Amberol") || schema.contains("bassi") {
+                    error!("  - {}", schema);
                 }
             }
             
