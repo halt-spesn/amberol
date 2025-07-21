@@ -248,7 +248,7 @@ jobs:
           $newDepsFound = $false
           $iterationCopied = 0
           
-          Write-Host "  📍 Iteration $currentIteration..." -ForegroundColor Gray
+          Write-Host "  📍 Iteration ${currentIteration}..." -ForegroundColor Gray
           
           $allDllsInBin = Get-ChildItem "$binDir" -Filter "*.dll"
           foreach ($dll in $allDllsInBin) {
@@ -279,9 +279,9 @@ jobs:
           }
           
           if ($iterationCopied -gt 0) {
-            Write-Host "  ✅ Iteration $currentIteration: Found $iterationCopied additional dependencies" -ForegroundColor Green
+            Write-Host "  ✅ Iteration ${currentIteration}: Found ${iterationCopied} additional dependencies" -ForegroundColor Green
           } else {
-            Write-Host "  ✅ Iteration $currentIteration: No new dependencies found" -ForegroundColor Green
+            Write-Host "  ✅ Iteration ${currentIteration}: No new dependencies found" -ForegroundColor Green
           }
         }
         
