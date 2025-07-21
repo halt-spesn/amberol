@@ -64,7 +64,7 @@ pub fn get_music_folder() -> Option<std::path::PathBuf> {
             HWND(std::ptr::null_mut()),
             CSIDL_MYMUSIC as i32,
             HANDLE(std::ptr::null_mut()),
-            SHGFP_TYPE_CURRENT.0,
+            SHGFP_TYPE_CURRENT.0 as u32,
             &mut path,
         );
         

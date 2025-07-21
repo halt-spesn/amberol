@@ -106,8 +106,8 @@ impl Application {
             .build()
     }
 
-    pub fn player(&self) -> &AudioPlayer {
-        &self.imp().player
+    pub fn player(&self) -> Rc<AudioPlayer> {
+        self.imp().player.clone()
     }
 
     fn present_main_window(&self) {
@@ -128,26 +128,28 @@ impl Application {
     }
 
     fn setup_gactions(&self) {
-        // Create and add simple actions without using ActionEntry which has trait bound issues
+        // Create and add simple actions using the underlying gio::Application
+        let app = self.upcast_ref::<gio::Application>();
+        
         let quit_action = gio::SimpleAction::new("quit", None);
         quit_action.connect_activate(clone!(
-            #[weak(rename_to = app)]
+            #[weak(rename_to = this)]
             self,
             move |_, _| {
-                app.quit();
+                this.quit();
             }
         ));
-        self.add_action(&quit_action);
+        app.add_action(&quit_action);
 
         let about_action = gio::SimpleAction::new("about", None);
         about_action.connect_activate(clone!(
-            #[weak(rename_to = app)]
+            #[weak(rename_to = this)]
             self,
             move |_, _| {
-                app.show_about();
+                this.show_about();
             }
         ));
-        self.add_action(&about_action);
+        app.add_action(&about_action);
 
         let background_play = self.imp().settings.boolean("background-play");
         let background_play_action = gio::SimpleAction::new_stateful(
@@ -156,23 +158,23 @@ impl Application {
             &background_play.to_variant(),
         );
         background_play_action.connect_activate(clone!(
-            #[weak(rename_to = app)]
+            #[weak(rename_to = this)]
             self,
             move |action, _| {
                 let state = action.state().unwrap();
                 let background_play = state.get::<bool>().unwrap();
                 let new_state = !background_play;
                 action.set_state(&new_state.to_variant());
-                app.imp().settings.set_boolean("background-play", new_state).unwrap();
+                this.imp().settings.set_boolean("background-play", new_state).unwrap();
 
                 if new_state {
-                    app.imp().background_hold.replace(Some(app.hold()));
+                    this.imp().background_hold.replace(Some(this.hold()));
                 } else {
-                    app.imp().background_hold.replace(None);
+                    this.imp().background_hold.replace(None);
                 }
             }
         ));
-        self.add_action(&background_play_action);
+        app.add_action(&background_play_action);
     }
 
     fn show_about(&self) {
