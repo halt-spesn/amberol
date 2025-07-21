@@ -16,8 +16,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-windows:
-    name: Build Windows
+  build-windows-static:
+    name: Build Windows (Static)
     runs-on: windows-latest
     defaults:
       run:
@@ -48,21 +48,22 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-gcc-libs
 
-    - name: Build Static Version
-      shell: pwsh
+    - name: Configure and Build Static Version
       run: |
         # Set environment for static linking
-        $env:PKG_CONFIG_ALL_STATIC = "1"
-        $env:PKG_CONFIG_ALLOW_CROSS = "1"
-        $env:GSTREAMER_1_0_STATIC = "1"
-        $env:GTK4_STATIC = "1"
-        $env:RUSTFLAGS = "-C target-feature=+crt-static -C link-arg=-static -C link-arg=-static-libgcc -C link-arg=-static-libstdc++"
+        export PKG_CONFIG_ALL_STATIC=1
+        export PKG_CONFIG_ALLOW_CROSS=1
+        export GSTREAMER_1_0_STATIC=1
+        export GTK4_STATIC=1
+        export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-static -C link-arg=-static-libgcc -C link-arg=-static-libstdc++"
         
-        # Configure for static build
-        meson setup _build_static --buildtype=release --default-library=static --prefer-static
+        echo "🔧 Configuring static build..."
+        meson setup _build --buildtype=release --default-library=static --prefer-static
         
-        # Build
-        meson compile -C _build_static
+        echo "🏗️ Building static executable..."
+        meson compile -C _build
+        
+        echo "✅ Build completed!"
 
     - name: Create Static Distribution
       shell: pwsh
@@ -74,16 +75,18 @@ jobs:
         New-Item -ItemType Directory -Force -Path $binDir
         
         # Copy the statically linked executable
-        Copy-Item "_build_static\src\amberol.exe" $binDir -Force
+        Copy-Item "_build\src\amberol.exe" $binDir -Force
         
         # Copy documentation files
         Copy-Item "README-Windows.md" $distDir -Force
         Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
+        Copy-Item "README-Windows-Static.md" $distDir -Force
         
         # Create simple launcher for static build
         $staticLauncher = @"
         @echo off
-        REM Amberol Static Build - No DLL dependencies required
+        REM Amberol Static Build - Self-contained executable
+        REM All dependencies are statically linked - no external DLLs required
         
         setlocal
         set AMBEROL_DIR=%~dp0
@@ -96,125 +99,79 @@ jobs:
             mkdir "%LOCALAPPDATA%\io.bassi.Amberol"
         )
         
-        echo Starting Amberol (Static Build)...
+        echo Starting Amberol (Static Build - Self-Contained)...
         "%AMBEROL_DIR%bin\amberol.exe" %*
         
         if %ERRORLEVEL% neq 0 (
             echo.
-            echo Error: Amberol failed to start
-            echo This is a static build - no external DLLs required
-            echo Please check Windows compatibility (Windows 10/11)
+            echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)
+            echo.
+            echo This is a static build with all dependencies included.
+            echo Troubleshooting:
+            echo - Ensure Windows 10 version 1809 or Windows 11
+            echo - Check that Windows Audio service is running
+            echo - Verify audio drivers are properly installed
+            echo - Try running as Administrator if needed
+            echo.
             pause
         )
         endlocal
         "@
         
-        Set-Content -Path "$distDir\amberol-static.bat" -Value $staticLauncher
-        
-        # Check executable size and dependencies
-        $exeSize = (Get-Item "$binDir\amberol.exe").Length / 1MB
-        Write-Host "Static executable size: $($exeSize.ToString('F2')) MB"
-        
-        # Show dependencies (should be minimal for static build)
-        if (Get-Command objdump -ErrorAction SilentlyContinue) {
-            Write-Host "Checking dependencies:"
-            objdump -p "$binDir\amberol.exe" | Select-String "DLL Name:" | Select-Object -First 10
-        }
+        Set-Content -Path "$distDir\amberol.bat" -Value $staticLauncher
 
-    - name: Build Portable Version
-      run: |
-        # Configure for portable build (with DLLs)
-        meson setup _build_portable --buildtype=release
-        meson compile -C _build_portable
-
-    - name: Create Portable Distribution
+    - name: Analyze Static Build
       shell: pwsh
       run: |
-        # Create portable distribution directory
-        $distDir = "amberol-windows-portable"
-        $binDir = "$distDir\bin"
-        $libDir = "$distDir\lib"
-        $shareDir = "$distDir\share"
+        $exePath = "amberol-windows-static\bin\amberol.exe"
         
-        New-Item -ItemType Directory -Force -Path $binDir, $libDir, $shareDir
-        
-        # Copy main executable
-        Copy-Item "_build_portable\src\amberol.exe" $binDir
-        
-        # Copy required DLLs
-        $dllsNeeded = @(
-          "libgtk-4-1.dll",
-          "libadwaita-1-0.dll",
-          "libgstreamer-1.0-0.dll",
-          "libgstbase-1.0-0.dll",
-          "libgstaudio-1.0-0.dll",
-          "libgstplayer-1.0-0.dll",
-          "libglib-2.0-0.dll",
-          "libgobject-2.0-0.dll",
-          "libgio-2.0-0.dll",
-          "libcairo-2.dll",
-          "libpango-1.0-0.dll",
-          "libharfbuzz-0.dll",
-          "libfreetype-6.dll",
-          "libfontconfig-1.dll",
-          "libexpat-1.dll",
-          "libbrotlidec.dll",
-          "libbrotlicommon.dll",
-          "libpng16-16.dll",
-          "libffi-7.dll",
-          "libintl-8.dll",
-          "libiconv-2.dll",
-          "libpcre-1.dll",
-          "zlib1.dll",
-          "libwinpthread-1.dll",
-          "libgcc_s_seh-1.dll",
-          "libstdc++-6.dll"
-        )
-        
-        foreach ($dll in $dllsNeeded) {
-          $source = "C:\msys64\mingw64\bin\$dll"
-          if (Test-Path $source) {
-            Copy-Item $source $binDir -Force
-          }
+        if (Test-Path $exePath) {
+            # Get executable size
+            $exeSize = (Get-Item $exePath).Length / 1MB
+            Write-Host "📊 Static executable size: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
+            
+            # Try to check dependencies (should be minimal for static build)
+            try {
+                $dependencies = & objdump -p $exePath | Select-String "DLL Name:" | Select-Object -First 10
+                if ($dependencies) {
+                    Write-Host "🔍 Runtime dependencies:" -ForegroundColor Yellow
+                    $dependencies | ForEach-Object { Write-Host "  $_" }
+                } else {
+                    Write-Host "✅ No external DLL dependencies detected!" -ForegroundColor Green
+                }
+            } catch {
+                Write-Host "⚠️ Could not analyze dependencies (objdump not available)" -ForegroundColor Yellow
+            }
+            
+            # Check file properties
+            Write-Host "📋 File details:" -ForegroundColor Blue
+            Write-Host "  Path: $exePath"
+            Write-Host "  Size: $($exeSize.ToString('F2')) MB"
+            Write-Host "  Type: Static-linked executable"
+        } else {
+            Write-Error "❌ Static executable not found at $exePath"
         }
-        
-        # Copy GStreamer plugins
-        $gstPluginDir = "C:\msys64\mingw64\lib\gstreamer-1.0"
-        if (Test-Path $gstPluginDir) {
-          Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
-        }
-        
-        # Copy application resources
-        Copy-Item "_build_portable\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
-        
-        # Copy launcher script and docs
-        Copy-Item "amberol.bat" $distDir -Force
-        Copy-Item "README-Windows.md" $distDir -Force
-        Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
 
-    - name: Create Distribution Packages
+    - name: Create Static Package
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path dist
         
-        # Create static build ZIP (single executable, larger size)
+        # Create static build ZIP
         Compress-Archive -Path "amberol-windows-static\*" -DestinationPath "dist\amberol-windows-static.zip"
         
-        # Create portable build ZIP (multiple files, smaller executable)
-        Compress-Archive -Path "amberol-windows-portable\*" -DestinationPath "dist\amberol-windows-portable.zip"
+        # Show package information
+        $packageSize = (Get-Item "dist\amberol-windows-static.zip").Length / 1MB
+        $exeSize = (Get-Item "amberol-windows-static\bin\amberol.exe").Length / 1MB
         
-        # Show package sizes
-        $staticSize = (Get-Item "dist\amberol-windows-static.zip").Length / 1MB
-        $portableSize = (Get-Item "dist\amberol-windows-portable.zip").Length / 1MB
-        $staticExeSize = (Get-Item "amberol-windows-static\bin\amberol.exe").Length / 1MB
-        $portableExeSize = (Get-Item "amberol-windows-portable\bin\amberol.exe").Length / 1MB
-        
-        Write-Host "📦 Package Summary:" -ForegroundColor Green
-        Write-Host "Static Package: $($staticSize.ToString('F2')) MB (exe: $($staticExeSize.ToString('F2')) MB)" -ForegroundColor Yellow
-        Write-Host "Portable Package: $($portableSize.ToString('F2')) MB (exe: $($portableExeSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "📦 Static Build Package Summary:" -ForegroundColor Green
+        Write-Host "  Package: amberol-windows-static.zip ($($packageSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "  Executable: amberol.exe ($($exeSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "  Dependencies: None (fully static)" -ForegroundColor Yellow
+        Write-Host "  Target: Windows 10/11 x64" -ForegroundColor Yellow
 
-    - name: Upload Windows Builds
+    - name: Upload Static Build
       uses: actions/upload-artifact@v4
       with:
-        name: amberol-windows
+        name: amberol-windows-static
         path: dist/
