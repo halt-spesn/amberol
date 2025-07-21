@@ -361,6 +361,7 @@ jobs:
           }
           
           Write-Host "✅ Found and copied $pluginDepsFound additional plugin dependencies" -ForegroundColor Magenta
+        }
         
         # Test schema installation
         Write-Host "🧪 Testing schema installation..." -ForegroundColor Blue
