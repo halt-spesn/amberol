@@ -47,23 +47,36 @@ jobs:
           mingw-w64-x86_64-gettext
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-gcc-libs
+          mingw-w64-x86_64-graphene
+          mingw-w64-x86_64-cairo
+          mingw-w64-x86_64-pango
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-gobject-introspection
+
+    - name: Attempt to Install Static Libraries
+      run: |
+        echo "🔍 Attempting to install static/development packages..."
+        
+        # Try to install development packages that might contain static libraries
+        pacman -S --noconfirm --needed \
+          mingw-w64-x86_64-gtk4-devel \
+          mingw-w64-x86_64-libadwaita-devel \
+          mingw-w64-x86_64-gstreamer-devel \
+          mingw-w64-x86_64-gst-plugins-base-devel \
+          mingw-w64-x86_64-graphene-devel \
+          mingw-w64-x86_64-cairo-devel \
+          mingw-w64-x86_64-pango-devel \
+          mingw-w64-x86_64-glib2-devel 2>/dev/null || echo "Some -devel packages not available"
+        
+        # Check what static libraries we actually have
+        echo "📋 Available static libraries in /mingw64/lib:"
+        find /mingw64/lib -name "*.a" | grep -E "(gtk|adwaita|gst|graphene)" | head -20 || echo "No matching static libraries found"
 
     - name: Configure and Build Static Version
       run: |
-        # Set environment for static linking
-        export PKG_CONFIG_ALL_STATIC=1
-        export PKG_CONFIG_ALLOW_CROSS=1
-        export GSTREAMER_1_0_STATIC=1
-        export GTK4_STATIC=1
-        export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-static -C link-arg=-static-libgcc -C link-arg=-static-libstdc++"
-        
-        echo "🔧 Configuring static build..."
-        meson setup _build --buildtype=release --default-library=static --prefer-static
-        
-        echo "🏗️ Building static executable..."
-        meson compile -C _build
-        
-        echo "✅ Build completed!"
+        echo "🚀 Using comprehensive static build approach..."
+        chmod +x build_true_static.sh
+        ./build_true_static.sh
 
     - name: Create Static Distribution
       shell: pwsh
@@ -130,24 +143,64 @@ jobs:
             $exeSize = (Get-Item $exePath).Length / 1MB
             Write-Host "📊 Static executable size: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
             
-            # Try to check dependencies (should be minimal for static build)
+            # Check dependencies thoroughly
+            Write-Host "🔍 Analyzing dependencies..." -ForegroundColor Blue
+            
             try {
-                $dependencies = & objdump -p $exePath | Select-String "DLL Name:" | Select-Object -First 10
-                if ($dependencies) {
-                    Write-Host "🔍 Runtime dependencies:" -ForegroundColor Yellow
-                    $dependencies | ForEach-Object { Write-Host "  $_" }
+                # Use objdump to check DLL dependencies
+                $allDeps = & objdump -p $exePath | Select-String "DLL Name:"
+                $problematicDeps = $allDeps | Where-Object { $_ -match "(libgtk|libadwaita|libgst|libgraphene)" }
+                
+                if ($allDeps) {
+                    Write-Host "📋 All runtime dependencies:" -ForegroundColor Yellow
+                    $allDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+                    
+                    if ($problematicDeps) {
+                        Write-Host "❌ PROBLEM: Still has dynamic dependencies that should be static:" -ForegroundColor Red
+                        $problematicDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                        Write-Host "🔧 These should be statically linked but aren't!" -ForegroundColor Red
+                    } else {
+                        Write-Host "✅ No problematic GTK/GStreamer DLL dependencies found!" -ForegroundColor Green
+                    }
                 } else {
-                    Write-Host "✅ No external DLL dependencies detected!" -ForegroundColor Green
+                    Write-Host "✅ No DLL dependencies detected - truly static!" -ForegroundColor Green
                 }
+                
+                # Check for Windows system DLLs (these are OK)
+                $systemDeps = $allDeps | Where-Object { $_ -match "(kernel32|user32|ntdll|msvcrt)" }
+                if ($systemDeps) {
+                    Write-Host "ℹ️ System dependencies (normal):" -ForegroundColor Cyan
+                    $systemDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
+                }
+                
             } catch {
-                Write-Host "⚠️ Could not analyze dependencies (objdump not available)" -ForegroundColor Yellow
+                Write-Host "⚠️ Could not analyze dependencies: $_" -ForegroundColor Yellow
+                # Fallback: try ldd if available
+                try {
+                    Write-Host "🔄 Trying alternative dependency check..." -ForegroundColor Yellow
+                    & ldd $exePath | Where-Object { $_ -match "(libgtk|libadwaita|libgst|libgraphene)" }
+                } catch {
+                    Write-Host "⚠️ Alternative check also failed" -ForegroundColor Yellow
+                }
             }
             
             # Check file properties
             Write-Host "📋 File details:" -ForegroundColor Blue
             Write-Host "  Path: $exePath"
             Write-Host "  Size: $($exeSize.ToString('F2')) MB"
-            Write-Host "  Type: Static-linked executable"
+            Write-Host "  Type: $(if ($problematicDeps) { 'Partially static (some DLLs still required)' } else { 'Fully static executable' })"
+            
+            # Size expectations
+            if ($exeSize -lt 50) {
+                Write-Host "⚠️ WARNING: Executable seems too small for a static build (expected 80-120MB)" -ForegroundColor Yellow
+                Write-Host "   This might indicate static linking failed" -ForegroundColor Yellow
+            } elseif ($exeSize -gt 200) {
+                Write-Host "⚠️ WARNING: Executable seems very large (>200MB)" -ForegroundColor Yellow
+                Write-Host "   This might indicate inefficient static linking" -ForegroundColor Yellow
+            } else {
+                Write-Host "✅ Size looks reasonable for a static build" -ForegroundColor Green
+            }
+            
         } else {
             Write-Error "❌ Static executable not found at $exePath"
         }
