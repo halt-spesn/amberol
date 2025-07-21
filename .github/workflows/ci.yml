@@ -164,7 +164,7 @@ jobs:
         # Copy launcher script and docs
         Copy-Item "amberol.bat" $distDir -Force
         Copy-Item "README-Windows.md" $distDir -Force
-        Copy-Item "COPYING" $distDir -Force
+        Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
 
     - name: Create Windows ZIP
       shell: pwsh

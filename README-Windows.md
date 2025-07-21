@@ -219,7 +219,7 @@ Amberol is open source! Contributions are welcome:
 ## License
 
 Amberol is released under the GNU General Public License, version 3.0 or later.
-See the [COPYING](COPYING) file for details.
+See the [LICENSE.txt](LICENSE.txt) file for details.
 
 ## Credits
 

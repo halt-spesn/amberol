@@ -15,7 +15,7 @@ AppUpdatesURL=https://apps.gnome.org/Amberol/
 DefaultDirName={autopf}\Amberol
 DefaultGroupName=Amberol
 AllowNoIcons=yes
-LicenseFile=COPYING
+LicenseFile=LICENSES\GPL-3.0-or-later.txt
 InfoBeforeFile=README.md
 OutputDir=dist
 OutputBaseFilename=amberol-windows-installer
@@ -54,7 +54,7 @@ Source: "amberol-windows-portable\share\*"; DestDir: "{app}\share"; Flags: ignor
 
 ; Documentation
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "COPYING"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSES\GPL-3.0-or-later.txt"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "CHANGES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
