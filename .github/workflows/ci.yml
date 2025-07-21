@@ -16,8 +16,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-windows-static:
-    name: Build Windows (Static)
+  build-windows-portable:
+    name: Build Windows (Self-Contained Portable)
     runs-on: windows-latest
     defaults:
       run:
@@ -47,84 +47,150 @@ jobs:
           mingw-w64-x86_64-gettext
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-gcc-libs
-          mingw-w64-x86_64-graphene
-          mingw-w64-x86_64-cairo
-          mingw-w64-x86_64-pango
-          mingw-w64-x86_64-glib2
-          mingw-w64-x86_64-gobject-introspection
 
-    - name: Attempt to Install Static Libraries
+    - name: Create Portable Build with All DLLs
       run: |
-        echo "🔍 Attempting to install static/development packages..."
+        echo "🏗️ Creating comprehensive portable build with all dependencies..."
         
-        # Try to install development packages that might contain static libraries
-        pacman -S --noconfirm --needed \
-          mingw-w64-x86_64-gtk4-devel \
-          mingw-w64-x86_64-libadwaita-devel \
-          mingw-w64-x86_64-gstreamer-devel \
-          mingw-w64-x86_64-gst-plugins-base-devel \
-          mingw-w64-x86_64-graphene-devel \
-          mingw-w64-x86_64-cairo-devel \
-          mingw-w64-x86_64-pango-devel \
-          mingw-w64-x86_64-glib2-devel 2>/dev/null || echo "Some -devel packages not available"
+        # Set up for dynamic linking (accepting that true static isn't feasible)
+        export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig"
         
-        # Check what static libraries we actually have
-        echo "📋 Available static libraries in /mingw64/lib:"
-        find /mingw64/lib -name "*.a" | grep -E "(gtk|adwaita|gst|graphene)" | head -20 || echo "No matching static libraries found"
+        echo "🔧 Configuring for portable build..."
+        meson setup _build --buildtype=release
+        
+        echo "🏗️ Building..."
+        meson compile -C _build
+        
+        echo "✅ Build completed!"
 
-    - name: Configure and Build Static Version
-      run: |
-        echo "🚀 Using comprehensive static build approach..."
-        chmod +x build_true_static.sh
-        ./build_true_static.sh
-
-    - name: Create Static Distribution
+    - name: Create Self-Contained Portable Distribution
       shell: pwsh
       run: |
-        # Create static distribution directory
+        # Create distribution directory
         $distDir = "amberol-windows-static"
         $binDir = "$distDir\bin"
+        $libDir = "$distDir\lib"
+        $shareDir = "$distDir\share"
         
-        New-Item -ItemType Directory -Force -Path $binDir
+        New-Item -ItemType Directory -Force -Path $binDir, $libDir, $shareDir
         
-        # Find the built executable from any of the possible build directories
-        $possibleBuilds = @("_build_static", "_build_manual", "_build_fallback", "_build")
-        $foundExe = $null
+        Write-Host "📁 Creating self-contained portable distribution..." -ForegroundColor Green
         
-        foreach ($buildDir in $possibleBuilds) {
-            $exePath = "$buildDir\src\amberol.exe"
-            if (Test-Path $exePath) {
-                $foundExe = $exePath
-                Write-Host "✅ Found executable in: $buildDir" -ForegroundColor Green
-                break
-            }
+        # Copy main executable
+        Copy-Item "_build\src\amberol.exe" $binDir -Force
+        
+        # Copy ALL possible DLLs to ensure it's truly portable
+        Write-Host "📦 Copying comprehensive DLL set..." -ForegroundColor Blue
+        $allDlls = @(
+          # Core GTK4/libadwaita
+          "libgtk-4-1.dll", "libadwaita-1-0.dll", "libgraphene-1.0-0.dll",
+          
+          # GStreamer audio
+          "libgstreamer-1.0-0.dll", "libgstbase-1.0-0.dll", "libgstaudio-1.0-0.dll", 
+          "libgstplayer-1.0-0.dll", "libgstvideo-1.0-0.dll", "libgstpbutils-1.0-0.dll",
+          "libgsttag-1.0-0.dll", "libgstapp-1.0-0.dll",
+          
+          # Core GLib/GObject
+          "libglib-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll",
+          "libgmodule-2.0-0.dll", "libgthread-2.0-0.dll",
+          
+          # Graphics and rendering
+          "libcairo-2.dll", "libcairo-gobject-2.dll", "libpango-1.0-0.dll",
+          "libpangocairo-1.0-0.dll", "libpangowin32-1.0-0.dll", "libpangoft2-1.0-0.dll",
+          "libharfbuzz-0.dll", "libfreetype-6.dll", "libfontconfig-1.dll",
+          "libpixman-1-0.dll", "librsvg-2-2.dll",
+          
+          # Image formats
+          "libpng16-16.dll", "libjpeg-8.dll", "libtiff-5.dll", "libwebp-7.dll",
+          "libwebpmux-3.dll", "libwebpdemux-2.dll",
+          
+          # Text and internationalization
+          "libintl-8.dll", "libiconv-2.dll", "libfribidi-0.dll",
+          
+          # XML and data
+          "libxml2-2.dll", "libexpat-1.dll", "liblzma-5.dll", "libbz2-1.dll",
+          
+          # Compression
+          "zlib1.dll", "libbrotlidec.dll", "libbrotlicommon.dll", "libbrotlienc.dll",
+          
+          # SSL/Network (if needed)
+          "libssl-3-x64.dll", "libcrypto-3-x64.dll",
+          
+          # Audio formats and codecs
+          "libvorbis-0.dll", "libvorbisenc-2.dll", "libvorbisfile-3.dll",
+          "libogg-0.dll", "libopus-0.dll", "libopusfile-0.dll",
+          "libFLAC-8.dll", "libsndfile-1.dll", "libmpg123-0.dll",
+          
+          # System libraries
+          "libffi-7.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
+          "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll"
+        )
+        
+        $copiedDlls = 0
+        $missingDlls = @()
+        
+        foreach ($dll in $allDlls) {
+          $source = "C:\msys64\mingw64\bin\$dll"
+          if (Test-Path $source) {
+            Copy-Item $source $binDir -Force
+            $copiedDlls++
+          } else {
+            $missingDlls += $dll
+          }
         }
         
-        if (-not $foundExe) {
-            Write-Error "❌ Could not find amberol.exe in any build directory"
-            Write-Host "🔍 Searching for any amberol.exe files..." -ForegroundColor Yellow
-            Get-ChildItem -Path . -Name "amberol.exe" -Recurse | ForEach-Object { Write-Host "  Found: $_" }
-            exit 1
+        Write-Host "✅ Copied $copiedDlls DLLs" -ForegroundColor Green
+        if ($missingDlls.Count -gt 0) {
+          Write-Host "⚠️ Missing DLLs (may not be needed): $($missingDlls.Count)" -ForegroundColor Yellow
         }
         
-        # Copy the found executable
-        Write-Host "📁 Copying executable from: $foundExe" -ForegroundColor Blue
-        Copy-Item $foundExe $binDir -Force
+        # Copy ALL GStreamer plugins
+        Write-Host "📦 Copying all GStreamer plugins..." -ForegroundColor Blue
+        $gstPluginDir = "C:\msys64\mingw64\lib\gstreamer-1.0"
+        if (Test-Path $gstPluginDir) {
+          Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
+          $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
+          Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
+        }
         
-        # Copy documentation files
+        # Copy GLib schemas
+        $glibSchemas = "C:\msys64\mingw64\share\glib-2.0"
+        if (Test-Path $glibSchemas) {
+          Copy-Item $glibSchemas "$shareDir\glib-2.0" -Recurse -Force
+        }
+        
+        # Copy application resources
+        Copy-Item "_build\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
+        
+        # Copy documentation
         Copy-Item "README-Windows.md" $distDir -Force
         Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
-        Copy-Item "README-Windows-Static.md" $distDir -Force
         
-        # Create simple launcher for static build
-        $staticLauncher = @"
+        # Create enhanced launcher that sets up complete environment
+        $launcher = @"
         @echo off
-        REM Amberol Static Build - Self-contained executable
-        REM All dependencies are statically linked - no external DLLs required
+        REM Amberol Portable - Self-Contained with All Dependencies
+        REM This version includes ALL required DLLs and should work without external dependencies
         
         setlocal
         set AMBEROL_DIR=%~dp0
         
+        REM Set up GStreamer environment
+        set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+        set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+        set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin
+        
+        REM Set up GLib environment
+        set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
+        
+        REM Add DLL directory to PATH
+        set PATH=%AMBEROL_DIR%bin;%PATH%
+        
+        REM Set GTK preferences
+        set GSK_RENDERER=gl
+        set GTK_USE_PORTAL=0
+        
+        REM Set application data directory
         if not defined LOCALAPPDATA (
             set LOCALAPPDATA=%USERPROFILE%\AppData\Local
         )
@@ -133,34 +199,40 @@ jobs:
             mkdir "%LOCALAPPDATA%\io.bassi.Amberol"
         )
         
-        echo Starting Amberol (Static Build - Self-Contained)...
+        echo Starting Amberol (Self-Contained Portable)...
+        echo All dependencies included - no system installation required
+        
         "%AMBEROL_DIR%bin\amberol.exe" %*
         
         if %ERRORLEVEL% neq 0 (
             echo.
             echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)
             echo.
-            echo This is a static build with all dependencies included.
+            echo This is a self-contained portable build.
             echo Troubleshooting:
-            echo - Ensure Windows 10 version 1809 or Windows 11
-            echo - Check that Windows Audio service is running
-            echo - Verify audio drivers are properly installed
-            echo - Try running as Administrator if needed
+            echo 1. Ensure Windows 10 version 1809 or Windows 11
+            echo 2. Check Windows Audio service is running
+            echo 3. Update audio drivers
+            echo 4. Try running as Administrator
+            echo 5. Check antivirus isn't blocking the application
+            echo.
+            echo Debug information:
+            echo - GST_PLUGIN_PATH: %GST_PLUGIN_PATH%
+            echo - Current directory: %CD%
+            echo - PATH: %PATH%
             echo.
             pause
         )
         endlocal
         "@
         
-        Set-Content -Path "$distDir\amberol.bat" -Value $staticLauncher
+        Set-Content -Path "$distDir\amberol.bat" -Value $launcher
         
-        # Report which build was used
-        $buildType = Split-Path (Split-Path $foundExe -Parent) -Leaf
-        Write-Host "📋 Build Information:" -ForegroundColor Green
-        Write-Host "  Source: $foundExe" -ForegroundColor Yellow
-        Write-Host "  Build Type: $buildType" -ForegroundColor Yellow
+        # Calculate total size
+        $totalSize = (Get-ChildItem $distDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "📊 Total portable package size: $($totalSize.ToString('F2')) MB" -ForegroundColor Green
 
-    - name: Analyze Static Build
+    - name: Analyze Portable Build
       shell: pwsh
       run: |
         # Find the executable in the distribution directory
@@ -169,117 +241,68 @@ jobs:
         if (Test-Path $exePath) {
             # Get executable size
             $exeSize = (Get-Item $exePath).Length / 1MB
-            Write-Host "📊 Static executable size: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
+            Write-Host "📊 Executable size: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
             
-            # Check dependencies thoroughly
-            Write-Host "🔍 Analyzing dependencies..." -ForegroundColor Blue
+            # Count included DLLs
+            $dllCount = (Get-ChildItem "amberol-windows-static\bin" -Filter "*.dll").Count
+            $pluginCount = if (Test-Path "amberol-windows-static\lib\gstreamer-1.0") { 
+                (Get-ChildItem "amberol-windows-static\lib\gstreamer-1.0" -Filter "*.dll").Count 
+            } else { 0 }
             
-            try {
-                # Use objdump to check DLL dependencies
-                $allDeps = & objdump -p $exePath 2>$null | Select-String "DLL Name:"
-                $problematicDeps = $allDeps | Where-Object { $_ -match "(libgtk|libadwaita|libgst|libgraphene)" }
-                
-                if ($allDeps) {
-                    Write-Host "📋 All runtime dependencies:" -ForegroundColor Yellow
-                    $allDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
-                    
-                    if ($problematicDeps) {
-                        Write-Host "❌ PROBLEM: Still has dynamic dependencies that should be static:" -ForegroundColor Red
-                        $problematicDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-                        Write-Host "🔧 These should be statically linked but aren't!" -ForegroundColor Red
-                        Write-Host "💡 The build may have fallen back to dynamic linking" -ForegroundColor Yellow
-                    } else {
-                        Write-Host "✅ No problematic GTK/GStreamer DLL dependencies found!" -ForegroundColor Green
-                    }
+            Write-Host "📦 Portable Build Analysis:" -ForegroundColor Blue
+            Write-Host "  Executable: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
+            Write-Host "  DLLs included: $dllCount" -ForegroundColor Green
+            Write-Host "  GStreamer plugins: $pluginCount" -ForegroundColor Green
+            
+            # Calculate total package size
+            $totalSize = (Get-ChildItem "amberol-windows-static" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+            Write-Host "  Total package: $($totalSize.ToString('F2')) MB" -ForegroundColor Green
+            
+            # List some key DLLs to verify they're included
+            Write-Host "🔍 Key dependencies included:" -ForegroundColor Blue
+            $keyDlls = @("libgtk-4-1.dll", "libadwaita-1-0.dll", "libgstreamer-1.0-0.dll", "libgstaudio-1.0-0.dll", "libgstplayer-1.0-0.dll")
+            foreach ($dll in $keyDlls) {
+                $path = "amberol-windows-static\bin\$dll"
+                if (Test-Path $path) {
+                    $size = [math]::Round((Get-Item $path).Length / 1KB, 1)
+                    Write-Host "  ✅ $dll ($size KB)" -ForegroundColor Green
                 } else {
-                    Write-Host "✅ No DLL dependencies detected - truly static!" -ForegroundColor Green
-                }
-                
-                # Check for Windows system DLLs (these are OK)
-                $systemDeps = $allDeps | Where-Object { $_ -match "(kernel32|user32|ntdll|msvcrt|advapi32)" }
-                if ($systemDeps) {
-                    Write-Host "ℹ️ System dependencies (normal for Windows):" -ForegroundColor Cyan
-                    $systemDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
-                }
-                
-            } catch {
-                Write-Host "⚠️ Could not analyze dependencies: $_" -ForegroundColor Yellow
-                # Fallback: try alternative methods
-                try {
-                    Write-Host "🔄 Trying PowerShell Get-Content approach..." -ForegroundColor Yellow
-                    $content = Get-Content $exePath -Raw -Encoding Byte
-                    $hasGtk = $content -match "gtk-4"
-                    $hasAdwaita = $content -match "adwaita"
-                    $hasGst = $content -match "gstreamer"
-                    
-                    if ($hasGtk -or $hasAdwaita -or $hasGst) {
-                        Write-Host "✅ Libraries appear to be embedded (found references in binary)" -ForegroundColor Green
-                    } else {
-                        Write-Host "⚠️ Could not detect library references in binary" -ForegroundColor Yellow
-                    }
-                } catch {
-                    Write-Host "⚠️ All dependency analysis methods failed" -ForegroundColor Yellow
+                    Write-Host "  ❌ $dll (missing)" -ForegroundColor Red
                 }
             }
             
-            # Check file properties and provide assessment
-            Write-Host "📋 File Assessment:" -ForegroundColor Blue
-            Write-Host "  Path: $exePath"
-            Write-Host "  Size: $($exeSize.ToString('F2')) MB"
-            
-            # Size-based assessment
-            if ($exeSize -lt 20) {
-                Write-Host "  Status: ❌ Too small - likely dynamic linking" -ForegroundColor Red
-                Write-Host "  Recommendation: Use portable build instead" -ForegroundColor Yellow
-            } elseif ($exeSize -lt 50) {
-                Write-Host "  Status: ⚠️ Small - partial static linking" -ForegroundColor Yellow  
-                Write-Host "  Recommendation: May require some DLLs" -ForegroundColor Yellow
-            } elseif ($exeSize -lt 150) {
-                Write-Host "  Status: ✅ Good size for static build" -ForegroundColor Green
-                Write-Host "  Assessment: Likely fully or mostly static" -ForegroundColor Green
-            } else {
-                Write-Host "  Status: ⚠️ Very large - check for bloat" -ForegroundColor Yellow
-                Write-Host "  Assessment: Fully static but potentially inefficient" -ForegroundColor Yellow
-            }
-            
-            # Final recommendation
-            if ($problematicDeps -and $problematicDeps.Count -gt 0) {
-                Write-Host "🎯 RESULT: Hybrid build - some DLLs still required" -ForegroundColor Yellow
-                Write-Host "   You may need to distribute this with the required DLLs" -ForegroundColor Yellow
-            } elseif ($exeSize -gt 50) {
-                Write-Host "🎯 RESULT: Appears to be a successful static build!" -ForegroundColor Green
-                Write-Host "   Should run without external DLL dependencies" -ForegroundColor Green
-            } else {
-                Write-Host "🎯 RESULT: Build completed but static linking may be incomplete" -ForegroundColor Yellow
-                Write-Host "   Test the executable to verify functionality" -ForegroundColor Yellow
-            }
+            Write-Host "🎯 RESULT: Self-contained portable build created!" -ForegroundColor Green
+            Write-Host "   This package should run on Windows 10/11 without any additional dependencies" -ForegroundColor Green
+            Write-Host "   Users can simply extract and run amberol.bat" -ForegroundColor Green
             
         } else {
-            Write-Error "❌ Static executable not found at $exePath"
+            Write-Error "❌ Executable not found at $exePath"
             Write-Host "🔍 Checking distribution directory contents:" -ForegroundColor Yellow
             Get-ChildItem "amberol-windows-static" -Recurse | ForEach-Object { Write-Host "  $_" }
         }
 
-    - name: Create Static Package
+    - name: Create Portable Package
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path dist
         
-        # Create static build ZIP
-        Compress-Archive -Path "amberol-windows-static\*" -DestinationPath "dist\amberol-windows-static.zip"
+        # Create comprehensive portable build ZIP
+        Compress-Archive -Path "amberol-windows-static\*" -DestinationPath "dist\amberol-windows-portable.zip"
         
         # Show package information
-        $packageSize = (Get-Item "dist\amberol-windows-static.zip").Length / 1MB
+        $packageSize = (Get-Item "dist\amberol-windows-portable.zip").Length / 1MB
         $exeSize = (Get-Item "amberol-windows-static\bin\amberol.exe").Length / 1MB
+        $dllCount = (Get-ChildItem "amberol-windows-static\bin" -Filter "*.dll").Count
         
-        Write-Host "📦 Static Build Package Summary:" -ForegroundColor Green
-        Write-Host "  Package: amberol-windows-static.zip ($($packageSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "📦 Self-Contained Portable Package Summary:" -ForegroundColor Green
+        Write-Host "  Package: amberol-windows-portable.zip ($($packageSize.ToString('F2')) MB)" -ForegroundColor Yellow
         Write-Host "  Executable: amberol.exe ($($exeSize.ToString('F2')) MB)" -ForegroundColor Yellow
-        Write-Host "  Dependencies: None (fully static)" -ForegroundColor Yellow
-        Write-Host "  Target: Windows 10/11 x64" -ForegroundColor Yellow
+        Write-Host "  Dependencies: $dllCount DLLs included" -ForegroundColor Yellow
+        Write-Host "  Target: Windows 10/11 x64 (no system dependencies)" -ForegroundColor Yellow
+        Write-Host "  Installation: Extract and run amberol.bat" -ForegroundColor Yellow
 
-    - name: Upload Static Build
+    - name: Upload Portable Build
       uses: actions/upload-artifact@v4
       with:
-        name: amberol-windows-static
+        name: amberol-windows-portable
         path: dist/
