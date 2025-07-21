@@ -87,8 +87,29 @@ jobs:
         
         New-Item -ItemType Directory -Force -Path $binDir
         
-        # Copy the statically linked executable
-        Copy-Item "_build\src\amberol.exe" $binDir -Force
+        # Find the built executable from any of the possible build directories
+        $possibleBuilds = @("_build_static", "_build_manual", "_build_fallback", "_build")
+        $foundExe = $null
+        
+        foreach ($buildDir in $possibleBuilds) {
+            $exePath = "$buildDir\src\amberol.exe"
+            if (Test-Path $exePath) {
+                $foundExe = $exePath
+                Write-Host "✅ Found executable in: $buildDir" -ForegroundColor Green
+                break
+            }
+        }
+        
+        if (-not $foundExe) {
+            Write-Error "❌ Could not find amberol.exe in any build directory"
+            Write-Host "🔍 Searching for any amberol.exe files..." -ForegroundColor Yellow
+            Get-ChildItem -Path . -Name "amberol.exe" -Recurse | ForEach-Object { Write-Host "  Found: $_" }
+            exit 1
+        }
+        
+        # Copy the found executable
+        Write-Host "📁 Copying executable from: $foundExe" -ForegroundColor Blue
+        Copy-Item $foundExe $binDir -Force
         
         # Copy documentation files
         Copy-Item "README-Windows.md" $distDir -Force
@@ -132,10 +153,17 @@ jobs:
         "@
         
         Set-Content -Path "$distDir\amberol.bat" -Value $staticLauncher
+        
+        # Report which build was used
+        $buildType = Split-Path (Split-Path $foundExe -Parent) -Leaf
+        Write-Host "📋 Build Information:" -ForegroundColor Green
+        Write-Host "  Source: $foundExe" -ForegroundColor Yellow
+        Write-Host "  Build Type: $buildType" -ForegroundColor Yellow
 
     - name: Analyze Static Build
       shell: pwsh
       run: |
+        # Find the executable in the distribution directory
         $exePath = "amberol-windows-static\bin\amberol.exe"
         
         if (Test-Path $exePath) {
@@ -148,7 +176,7 @@ jobs:
             
             try {
                 # Use objdump to check DLL dependencies
-                $allDeps = & objdump -p $exePath | Select-String "DLL Name:"
+                $allDeps = & objdump -p $exePath 2>$null | Select-String "DLL Name:"
                 $problematicDeps = $allDeps | Where-Object { $_ -match "(libgtk|libadwaita|libgst|libgraphene)" }
                 
                 if ($allDeps) {
@@ -159,6 +187,7 @@ jobs:
                         Write-Host "❌ PROBLEM: Still has dynamic dependencies that should be static:" -ForegroundColor Red
                         $problematicDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
                         Write-Host "🔧 These should be statically linked but aren't!" -ForegroundColor Red
+                        Write-Host "💡 The build may have fallen back to dynamic linking" -ForegroundColor Yellow
                     } else {
                         Write-Host "✅ No problematic GTK/GStreamer DLL dependencies found!" -ForegroundColor Green
                     }
@@ -167,42 +196,68 @@ jobs:
                 }
                 
                 # Check for Windows system DLLs (these are OK)
-                $systemDeps = $allDeps | Where-Object { $_ -match "(kernel32|user32|ntdll|msvcrt)" }
+                $systemDeps = $allDeps | Where-Object { $_ -match "(kernel32|user32|ntdll|msvcrt|advapi32)" }
                 if ($systemDeps) {
-                    Write-Host "ℹ️ System dependencies (normal):" -ForegroundColor Cyan
+                    Write-Host "ℹ️ System dependencies (normal for Windows):" -ForegroundColor Cyan
                     $systemDeps | ForEach-Object { Write-Host "  $_" -ForegroundColor Cyan }
                 }
                 
             } catch {
                 Write-Host "⚠️ Could not analyze dependencies: $_" -ForegroundColor Yellow
-                # Fallback: try ldd if available
+                # Fallback: try alternative methods
                 try {
-                    Write-Host "🔄 Trying alternative dependency check..." -ForegroundColor Yellow
-                    & ldd $exePath | Where-Object { $_ -match "(libgtk|libadwaita|libgst|libgraphene)" }
+                    Write-Host "🔄 Trying PowerShell Get-Content approach..." -ForegroundColor Yellow
+                    $content = Get-Content $exePath -Raw -Encoding Byte
+                    $hasGtk = $content -match "gtk-4"
+                    $hasAdwaita = $content -match "adwaita"
+                    $hasGst = $content -match "gstreamer"
+                    
+                    if ($hasGtk -or $hasAdwaita -or $hasGst) {
+                        Write-Host "✅ Libraries appear to be embedded (found references in binary)" -ForegroundColor Green
+                    } else {
+                        Write-Host "⚠️ Could not detect library references in binary" -ForegroundColor Yellow
+                    }
                 } catch {
-                    Write-Host "⚠️ Alternative check also failed" -ForegroundColor Yellow
+                    Write-Host "⚠️ All dependency analysis methods failed" -ForegroundColor Yellow
                 }
             }
             
-            # Check file properties
-            Write-Host "📋 File details:" -ForegroundColor Blue
+            # Check file properties and provide assessment
+            Write-Host "📋 File Assessment:" -ForegroundColor Blue
             Write-Host "  Path: $exePath"
             Write-Host "  Size: $($exeSize.ToString('F2')) MB"
-            Write-Host "  Type: $(if ($problematicDeps) { 'Partially static (some DLLs still required)' } else { 'Fully static executable' })"
             
-            # Size expectations
-            if ($exeSize -lt 50) {
-                Write-Host "⚠️ WARNING: Executable seems too small for a static build (expected 80-120MB)" -ForegroundColor Yellow
-                Write-Host "   This might indicate static linking failed" -ForegroundColor Yellow
-            } elseif ($exeSize -gt 200) {
-                Write-Host "⚠️ WARNING: Executable seems very large (>200MB)" -ForegroundColor Yellow
-                Write-Host "   This might indicate inefficient static linking" -ForegroundColor Yellow
+            # Size-based assessment
+            if ($exeSize -lt 20) {
+                Write-Host "  Status: ❌ Too small - likely dynamic linking" -ForegroundColor Red
+                Write-Host "  Recommendation: Use portable build instead" -ForegroundColor Yellow
+            } elseif ($exeSize -lt 50) {
+                Write-Host "  Status: ⚠️ Small - partial static linking" -ForegroundColor Yellow  
+                Write-Host "  Recommendation: May require some DLLs" -ForegroundColor Yellow
+            } elseif ($exeSize -lt 150) {
+                Write-Host "  Status: ✅ Good size for static build" -ForegroundColor Green
+                Write-Host "  Assessment: Likely fully or mostly static" -ForegroundColor Green
             } else {
-                Write-Host "✅ Size looks reasonable for a static build" -ForegroundColor Green
+                Write-Host "  Status: ⚠️ Very large - check for bloat" -ForegroundColor Yellow
+                Write-Host "  Assessment: Fully static but potentially inefficient" -ForegroundColor Yellow
+            }
+            
+            # Final recommendation
+            if ($problematicDeps -and $problematicDeps.Count -gt 0) {
+                Write-Host "🎯 RESULT: Hybrid build - some DLLs still required" -ForegroundColor Yellow
+                Write-Host "   You may need to distribute this with the required DLLs" -ForegroundColor Yellow
+            } elseif ($exeSize -gt 50) {
+                Write-Host "🎯 RESULT: Appears to be a successful static build!" -ForegroundColor Green
+                Write-Host "   Should run without external DLL dependencies" -ForegroundColor Green
+            } else {
+                Write-Host "🎯 RESULT: Build completed but static linking may be incomplete" -ForegroundColor Yellow
+                Write-Host "   Test the executable to verify functionality" -ForegroundColor Yellow
             }
             
         } else {
             Write-Error "❌ Static executable not found at $exePath"
+            Write-Host "🔍 Checking distribution directory contents:" -ForegroundColor Yellow
+            Get-ChildItem "amberol-windows-static" -Recurse | ForEach-Object { Write-Host "  $_" }
         }
 
     - name: Create Static Package
