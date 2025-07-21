@@ -54,7 +54,9 @@ mod imp {
                 settings,
             }
         }
-        
+    }
+    
+    impl Application {
         fn create_settings_with_fallback() -> gio::Settings {
             // First try the configured APPLICATION_ID
             match std::panic::catch_unwind(|| gio::Settings::new(APPLICATION_ID)) {
