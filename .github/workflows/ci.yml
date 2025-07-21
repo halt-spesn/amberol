@@ -103,7 +103,7 @@ jobs:
         }
         
         # List what DLLs are actually available
-        Write-Host "🔍 Available GTK/GStreamer DLLs in $msys2BinPath:" -ForegroundColor Blue
+        Write-Host "🔍 Available GTK/GStreamer DLLs in ${msys2BinPath}:" -ForegroundColor Blue
         Get-ChildItem "$msys2BinPath" -Filter "*gtk*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
         Get-ChildItem "$msys2BinPath" -Filter "*adwaita*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
         Get-ChildItem "$msys2BinPath" -Filter "*gst*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
@@ -230,13 +230,13 @@ jobs:
         $msys2LibPath = $msys2BinPath -replace "\\bin$", "\lib"
         $gstPluginDir = Join-Path $msys2LibPath "gstreamer-1.0"
         
-        Write-Host "🔍 Looking for GStreamer plugins in: $gstPluginDir" -ForegroundColor Gray
+        Write-Host "🔍 Looking for GStreamer plugins in: ${gstPluginDir}" -ForegroundColor Gray
         if (Test-Path $gstPluginDir) {
           Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
           $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
           Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
         } else {
-          Write-Host "⚠️ GStreamer plugin directory not found at $gstPluginDir" -ForegroundColor Yellow
+          Write-Host "⚠️ GStreamer plugin directory not found at ${gstPluginDir}" -ForegroundColor Yellow
           
           # Try alternative locations
           $altPaths = @(
@@ -245,7 +245,7 @@ jobs:
           )
           foreach ($altPath in $altPaths) {
             if (Test-Path $altPath) {
-              Write-Host "✅ Found GStreamer plugins at alternative location: $altPath" -ForegroundColor Green
+              Write-Host "✅ Found GStreamer plugins at alternative location: ${altPath}" -ForegroundColor Green
               Copy-Item $altPath "$libDir\gstreamer-1.0" -Recurse -Force
               $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
               Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
@@ -258,12 +258,12 @@ jobs:
         $msys2SharePath = $msys2BinPath -replace "\\bin$", "\share"
         $glibSchemas = Join-Path $msys2SharePath "glib-2.0"
         
-        Write-Host "🔍 Looking for GLib schemas in: $glibSchemas" -ForegroundColor Gray
+        Write-Host "🔍 Looking for GLib schemas in: ${glibSchemas}" -ForegroundColor Gray
         if (Test-Path $glibSchemas) {
           Copy-Item $glibSchemas "$shareDir\glib-2.0" -Recurse -Force
           Write-Host "✅ Copied GLib schemas" -ForegroundColor Green
         } else {
-          Write-Host "⚠️ GLib schemas not found at $glibSchemas" -ForegroundColor Yellow
+          Write-Host "⚠️ GLib schemas not found at ${glibSchemas}" -ForegroundColor Yellow
         }
         
         # Copy application resources
