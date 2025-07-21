@@ -61,11 +61,11 @@ pub fn get_music_folder() -> Option<std::path::PathBuf> {
     unsafe {
         let mut path = [0u16; 260]; // MAX_PATH
         let result = SHGetFolderPathW(
-            HWND(0),
-            CSIDL_MYMUSIC.0 as i32,
-            HANDLE(0),
-            SHGFP_TYPE_CURRENT,
-            &mut path as *mut u16,
+            HWND(std::ptr::null_mut()),
+            CSIDL_MYMUSIC as i32,
+            HANDLE(std::ptr::null_mut()),
+            SHGFP_TYPE_CURRENT.0,
+            &mut path,
         );
         
         if result.is_ok() {

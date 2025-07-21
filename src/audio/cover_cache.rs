@@ -8,6 +8,7 @@ use std::{
 };
 
 use gtk::{gdk, gio, glib, prelude::*};
+use lofty::{prelude::*, picture::PictureType, tag::{ItemValue, Tag}};
 use log::debug;
 use once_cell::sync::OnceCell;
 use sha2::{Digest, Sha256};
@@ -64,8 +65,8 @@ impl CoverCache {
         self.entries.get(uuid)
     }
 
-    fn load_cover_art(&self, tag: &lofty::Tag, path: Option<&Path>) -> Option<glib::Bytes> {
-        if let Some(picture) = tag.get_picture_type(lofty::PictureType::CoverFront) {
+    fn load_cover_art(&self, tag: &Tag, path: Option<&Path>) -> Option<glib::Bytes> {
+        if let Some(picture) = tag.get_picture_type(PictureType::CoverFront) {
             debug!("Found CoverFront");
             return Some(glib::Bytes::from(picture.data()));
         } else {
@@ -73,8 +74,8 @@ impl CoverCache {
             // and BandLogo types
             for picture in tag.pictures() {
                 let cover_art = match picture.pic_type() {
-                    lofty::PictureType::Other => Some(glib::Bytes::from(picture.data())),
-                    lofty::PictureType::BandLogo => Some(glib::Bytes::from(picture.data())),
+                    PictureType::Other => Some(glib::Bytes::from(picture.data())),
+                    PictureType::BandLogo => Some(glib::Bytes::from(picture.data())),
                     _ => None,
                 };
 
@@ -110,23 +111,23 @@ impl CoverCache {
         None
     }
 
-    pub fn cover_art(&mut self, path: &Path, tag: &lofty::Tag) -> Option<(CoverArt, String)> {
+    pub fn cover_art(&mut self, path: &Path, tag: &Tag) -> Option<(CoverArt, String)> {
         let mut album_artist = None;
         let mut track_artist = None;
         let mut album = None;
 
-        fn get_text_value(value: &lofty::ItemValue) -> Option<String> {
+        fn get_text_value(value: &ItemValue) -> Option<String> {
             match value {
-                lofty::ItemValue::Text(s) => Some(s.to_string()),
+                ItemValue::Text(s) => Some(s.to_string()),
                 _ => None,
             }
         }
 
         for item in tag.items() {
             match item.key() {
-                lofty::ItemKey::AlbumTitle => album = get_text_value(item.value()),
-                lofty::ItemKey::AlbumArtist => album_artist = get_text_value(item.value()),
-                lofty::ItemKey::TrackArtist => track_artist = get_text_value(item.value()),
+                ItemKey::AlbumTitle => album = get_text_value(item.value()),
+                ItemKey::AlbumArtist => album_artist = get_text_value(item.value()),
+                ItemKey::TrackArtist => track_artist = get_text_value(item.value()),
                 _ => (),
             };
         }

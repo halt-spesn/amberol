@@ -30,7 +30,7 @@ mod imp {
     pub struct Application {
         pub player: Rc<AudioPlayer>,
         pub receiver: RefCell<Option<Receiver<ApplicationAction>>>,
-        pub background_hold: RefCell<Option<ApplicationHoldGuard>>,
+        pub background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
         pub settings: gio::Settings,
     }
 
@@ -75,7 +75,7 @@ mod imp {
             let application = self.obj();
 
             // Set up CSS
-            utils::load_css();
+            // utils::load_css(); // This function doesn't exist, CSS is loaded by the window
 
             // Handle application action receiver
             let receiver = self.receiver.take().unwrap();
@@ -106,6 +106,10 @@ impl Application {
             .build()
     }
 
+    pub fn player(&self) -> &AudioPlayer {
+        &self.imp().player
+    }
+
     fn present_main_window(&self) {
         let window = if let Some(window) = self.active_window() {
             window
@@ -124,34 +128,51 @@ impl Application {
     }
 
     fn setup_gactions(&self) {
-        self.add_action_entries([
-            gio::ActionEntry::builder("quit")
-                .activate(|app: &Application, _, _| {
-                    app.quit();
-                })
-                .build(),
-            gio::ActionEntry::builder("about")
-                .activate(|app: &Application, _, _| {
-                    app.show_about();
-                })
-                .build(),
-        ]);
+        // Create and add simple actions without using ActionEntry which has trait bound issues
+        let quit_action = gio::SimpleAction::new("quit", None);
+        quit_action.connect_activate(clone!(
+            #[weak(rename_to = app)]
+            self,
+            move |_, _| {
+                app.quit();
+            }
+        ));
+        self.add_action(&quit_action);
+
+        let about_action = gio::SimpleAction::new("about", None);
+        about_action.connect_activate(clone!(
+            #[weak(rename_to = app)]
+            self,
+            move |_, _| {
+                app.show_about();
+            }
+        ));
+        self.add_action(&about_action);
 
         let background_play = self.imp().settings.boolean("background-play");
-        self.add_action_entries([gio::ActionEntry::builder("background-play")
-            .state(background_play.to_variant())
-            .activate(|this: &Application, action, _| {
+        let background_play_action = gio::SimpleAction::new_stateful(
+            "background-play",
+            None,
+            &background_play.to_variant(),
+        );
+        background_play_action.connect_activate(clone!(
+            #[weak(rename_to = app)]
+            self,
+            move |action, _| {
                 let state = action.state().unwrap();
-                let action_state: bool = state.get().unwrap();
-                let background_play = !action_state;
-                action.set_state(&background_play.to_variant());
+                let background_play = state.get::<bool>().unwrap();
+                let new_state = !background_play;
+                action.set_state(&new_state.to_variant());
+                app.imp().settings.set_boolean("background-play", new_state).unwrap();
 
-                this.imp()
-                    .settings
-                    .set_boolean("background-play", background_play)
-                    .expect("Unable to store background-play setting");
-            })
-            .build()]);
+                if new_state {
+                    app.imp().background_hold.replace(Some(app.hold()));
+                } else {
+                    app.imp().background_hold.replace(None);
+                }
+            }
+        ));
+        self.add_action(&background_play_action);
     }
 
     fn show_about(&self) {
