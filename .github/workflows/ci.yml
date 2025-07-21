@@ -56,7 +56,7 @@ jobs:
         export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig"
         
         echo "🔧 Configuring for portable build..."
-        meson setup _build --buildtype=release
+        meson setup _build --buildtype=release -Dprofile=default
         
         echo "🏗️ Building..."
         meson compile -C _build
@@ -172,7 +172,14 @@ jobs:
           "libtheoraenc-1.dll", "libtwolame-0.dll", "libvo-amrwbenc-0.dll", "libvpx-8.dll",
           "libwavpack-1.dll", "libwebrtc_audio_processing-1.dll", "libx264-164.dll",
           "libx265-209.dll", "libzbar-0.dll", "libass-9.dll", "libcaca-0.dll",
-          "libcdio-19.dll", "libchromaprint-1.dll", "libdts-0.dll"
+          "libcdio-19.dll", "libchromaprint-1.dll", "libdts-0.dll",
+          
+          # Additional specific codec libraries for remaining failing plugins
+          "libavswscale-8.dll", "libavresample-5.dll", "libavfilter-10.dll", "libavdevice-61.dll",
+          "libswscale-8.dll", "libswresample-5.dll", "libpostproc-58.dll",
+          "libdca-0.dll", "libdvdcss-2.dll", "libdvdnav-4.dll", "libmicrodns.dll",
+          "libresindvd-0.dll", "libbluray-2.dll", "libgnutls-30.dll", "libnettle-8.dll",
+          "libhogweed-6.dll", "libtasn1-6.dll", "libunistring-5.dll", "libidn2-0.dll"
         )
         
         $copiedDlls = 0
@@ -209,7 +216,9 @@ jobs:
           "*soup*.dll", "*spandsp*.dll", "*speex*.dll", "*srt*.dll", "*svt*.dll", "*tag*.dll",
           "*theora*.dll", "*twolame*.dll", "*amrwb*.dll", "*vpx*.dll", "*wavpack*.dll",
           "*webrtc*.dll", "*x264*.dll", "*x265*.dll", "*zbar*.dll", "*ass*.dll", "*caca*.dll",
-          "*cdio*.dll", "*chroma*.dll", "*dts*.dll"
+          "*cdio*.dll", "*chroma*.dll", "*dts*.dll", "*dca*.dll", "*dvd*.dll", "*bluray*.dll",
+          "*gnutls*.dll", "*nettle*.dll", "*hogweed*.dll", "*tasn1*.dll", "*unistring*.dll", "*idn2*.dll",
+          "*swscale*.dll", "*swresample*.dll", "*postproc*.dll", "*avfilter*.dll", "*avdevice*.dll"
         )
         $backupCopied = 0
         
@@ -389,17 +398,23 @@ jobs:
         
         # Copy application-specific GSettings schema
         Write-Host "📋 Copying application GSettings schema..." -ForegroundColor Blue
-        $appSchemaFiles = Get-ChildItem "_build" -Recurse -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
+        
+        # Look for both compiled and source schema files
+        $appSchemaFiles = @()
+        $appSchemaFiles += Get-ChildItem "_build" -Recurse -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
+        $appSchemaFiles += Get-ChildItem "data" -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
         $schemasDir = "$shareDir\glib-2.0\schemas"
         
         if (-not (Test-Path $schemasDir)) {
           New-Item -ItemType Directory -Force -Path $schemasDir
         }
         
+        Write-Host "🔍 Found $($appSchemaFiles.Count) schema files" -ForegroundColor Gray
+        
         if ($appSchemaFiles.Count -gt 0) {
           foreach ($schemaFile in $appSchemaFiles) {
             Copy-Item $schemaFile.FullName $schemasDir -Force
-            Write-Host "  ✅ Copied $($schemaFile.Name)" -ForegroundColor Green
+            Write-Host "  ✅ Copied $($schemaFile.Name) from $($schemaFile.DirectoryName)" -ForegroundColor Green
           }
           
           # Compile schemas using glib-compile-schemas
