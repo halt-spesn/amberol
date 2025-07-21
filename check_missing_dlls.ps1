@@ -64,7 +64,13 @@ $commonDlls = @(
     "libgstreamer-1.0-0.dll", "libgstaudio-1.0-0.dll", "libgstplayer-1.0-0.dll",
     "libglib-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll",
     "libcairo-2.dll", "libpango-1.0-0.dll", "libharfbuzz-0.dll",
-    "libffi-8.dll", "liborc-0.4-0.dll", "libappstream-5.dll", "libtiff-6.dll"
+    "libffi-8.dll", "liborc-0.4-0.dll", "libappstream-5.dll", "libtiff-6.dll",
+    
+    # Common GStreamer codec dependencies
+    "libavcodec-61.dll", "libavformat-61.dll", "libavutil-59.dll",
+    "libfaad-2.dll", "libmodplug-1.dll", "libmpeg2-0.dll", "libopenjp2-7.dll",
+    "libspeex-1.dll", "libtheora-0.dll", "libvpx-8.dll", "libwavpack-1.dll",
+    "libx264-164.dll", "libass-9.dll", "libcdio-19.dll"
 )
 
 Write-Host "📋 Checking common required DLLs..." -ForegroundColor Blue

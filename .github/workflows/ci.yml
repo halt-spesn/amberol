@@ -158,7 +158,21 @@ jobs:
           "liborc-0.4-0.dll", "libappstream-5.dll", "libtiff-6.dll", "libtiff-5.dll",
           "libsharpyuv-0.dll", "libdeflate.dll", "libjxl.dll", "libjxl_threads.dll",
           "libhwy.dll", "libbrotlienc.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
-          "libzstd.dll", "libgdk_pixbuf-2.0-0.dll", "libepoxy-0.dll", "libatk-1.0-0.dll"
+          "libzstd.dll", "libgdk_pixbuf-2.0-0.dll", "libepoxy-0.dll", "libatk-1.0-0.dll",
+          
+          # Audio/video codec libraries for GStreamer plugins
+          "liba52-0.dll", "libavcodec-61.dll", "libavformat-61.dll", "libavutil-59.dll",
+          "libfaac-0.dll", "libfaad-2.dll", "libfdk-aac-2.dll", "libfluidsynth-3.dll",
+          "libgme-0.dll", "libgsm-1.dll", "liblc3-1.dll", "libmicrodns-0.dll",
+          "libmodplug-1.dll", "libmpeg2-0.dll", "libmpcdec-6.dll", "libopenal-1.dll",
+          "libOpenEXR-3_1-30.dll", "libopenh264-7.dll", "libopenjp2-7.dll",
+          "libdvdread-8.dll", "librtmp-1.dll", "libshout-3.dll", "libsoundtouch-1.dll",
+          "libsoup-3.0-0.dll", "libspandsp-2.dll", "libspeex-1.dll", "libsrt-1.dll",
+          "libsvtav1enc-1.dll", "libtag-1.dll", "libtheora-0.dll", "libtheoradec-1.dll",
+          "libtheoraenc-1.dll", "libtwolame-0.dll", "libvo-amrwbenc-0.dll", "libvpx-8.dll",
+          "libwavpack-1.dll", "libwebrtc_audio_processing-1.dll", "libx264-164.dll",
+          "libx265-209.dll", "libzbar-0.dll", "libass-9.dll", "libcaca-0.dll",
+          "libcdio-19.dll", "libchromaprint-1.dll", "libdts-0.dll"
         )
         
         $copiedDlls = 0
@@ -187,7 +201,15 @@ jobs:
           "*cairo*.dll", "*pango*.dll", "*harfbuzz*.dll", "*freetype*.dll", "*fontconfig*.dll",
           "*pixman*.dll", "*png*.dll", "*jpeg*.dll", "*tiff*.dll", "*webp*.dll",
           "*orc*.dll", "*ffi*.dll", "*appstream*.dll", "*epoxy*.dll", "*atk*.dll",
-          "*vorbis*.dll", "*ogg*.dll", "*flac*.dll", "*opus*.dll", "*mpg123*.dll"
+          "*vorbis*.dll", "*ogg*.dll", "*flac*.dll", "*opus*.dll", "*mpg123*.dll",
+          "*a52*.dll", "*avcodec*.dll", "*avformat*.dll", "*avutil*.dll", "*faac*.dll",
+          "*faad*.dll", "*fdk*.dll", "*fluid*.dll", "*gme*.dll", "*gsm*.dll", "*lc3*.dll",
+          "*modplug*.dll", "*mpeg2*.dll", "*openal*.dll", "*openexr*.dll", "*openh264*.dll",
+          "*openjp2*.dll", "*dvdread*.dll", "*rtmp*.dll", "*shout*.dll", "*soundtouch*.dll",
+          "*soup*.dll", "*spandsp*.dll", "*speex*.dll", "*srt*.dll", "*svt*.dll", "*tag*.dll",
+          "*theora*.dll", "*twolame*.dll", "*amrwb*.dll", "*vpx*.dll", "*wavpack*.dll",
+          "*webrtc*.dll", "*x264*.dll", "*x265*.dll", "*zbar*.dll", "*ass*.dll", "*caca*.dll",
+          "*cdio*.dll", "*chroma*.dll", "*dts*.dll"
         )
         $backupCopied = 0
         
@@ -287,6 +309,43 @@ jobs:
         
         Write-Host "✅ Recursive dependency resolution completed" -ForegroundColor Cyan
         
+        # Additional step: Resolve GStreamer plugin dependencies
+        Write-Host "🎵 Resolving GStreamer plugin dependencies..." -ForegroundColor Blue
+        $gstPluginBinDir = "$libDir\gstreamer-1.0"
+        
+        if (Test-Path $gstPluginBinDir) {
+          $pluginDepsFound = 0
+          $gstPlugins = Get-ChildItem $gstPluginBinDir -Filter "*.dll"
+          
+          foreach ($plugin in $gstPlugins) {
+            try {
+              $pluginDeps = & objdump -p $plugin.FullName 2>$null | Select-String "DLL Name:"
+              foreach ($depLine in $pluginDeps) {
+                if ($depLine -match "DLL Name:\s*(.+)") {
+                  $depName = $matches[1].Trim()
+                  $depSourcePath = Join-Path $msys2BinPath $depName
+                  $depTargetPath = Join-Path $binDir $depName
+                  
+                  # Skip system DLLs
+                  if ($depName -match "^(kernel32|user32|ntdll|msvcrt|advapi32|ole32|shell32|ws2_32|winmm|version|comctl32|gdi32|comdlg32|winspool|oleaut32|uuid)\.dll$") {
+                    continue
+                  }
+                  
+                  if ((Test-Path $depSourcePath) -and (-not (Test-Path $depTargetPath))) {
+                    Copy-Item $depSourcePath $binDir -Force
+                    $pluginDepsFound++
+                    Write-Host "    🎵 $depName (needed by $($plugin.Name))" -ForegroundColor DarkMagenta
+                  }
+                }
+              }
+            } catch {
+              # Skip plugins that can't be analyzed
+            }
+          }
+          
+          Write-Host "✅ Found and copied $pluginDepsFound additional plugin dependencies" -ForegroundColor Magenta
+        }
+        
         # Copy ALL GStreamer plugins
         Write-Host "📦 Copying all GStreamer plugins..." -ForegroundColor Blue
         $msys2LibPath = $msys2BinPath -replace "\\bin$", "\lib"
@@ -316,7 +375,7 @@ jobs:
           }
         }
         
-        # Copy GLib schemas
+        # Copy GLib schemas and compile them
         $msys2SharePath = $msys2BinPath -replace "\\bin$", "\share"
         $glibSchemas = Join-Path $msys2SharePath "glib-2.0"
         
@@ -326,6 +385,34 @@ jobs:
           Write-Host "✅ Copied GLib schemas" -ForegroundColor Green
         } else {
           Write-Host "⚠️ GLib schemas not found at ${glibSchemas}" -ForegroundColor Yellow
+        }
+        
+        # Copy application-specific GSettings schema
+        Write-Host "📋 Copying application GSettings schema..." -ForegroundColor Blue
+        $appSchemaFiles = Get-ChildItem "_build" -Recurse -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
+        $schemasDir = "$shareDir\glib-2.0\schemas"
+        
+        if (-not (Test-Path $schemasDir)) {
+          New-Item -ItemType Directory -Force -Path $schemasDir
+        }
+        
+        if ($appSchemaFiles.Count -gt 0) {
+          foreach ($schemaFile in $appSchemaFiles) {
+            Copy-Item $schemaFile.FullName $schemasDir -Force
+            Write-Host "  ✅ Copied $($schemaFile.Name)" -ForegroundColor Green
+          }
+          
+          # Compile schemas using glib-compile-schemas
+          $glibCompile = Join-Path $msys2BinPath "glib-compile-schemas.exe"
+          if (Test-Path $glibCompile) {
+            Write-Host "🔧 Compiling GSettings schemas..." -ForegroundColor Blue
+            & $glibCompile $schemasDir
+            Write-Host "✅ Schemas compiled successfully" -ForegroundColor Green
+          } else {
+            Write-Host "⚠️ glib-compile-schemas not found, schemas may not work" -ForegroundColor Yellow
+          }
+        } else {
+          Write-Host "⚠️ No application schema files found" -ForegroundColor Yellow
         }
         
         # Copy application resources to multiple locations for portability
@@ -383,6 +470,7 @@ jobs:
         
         REM Set up GLib environment
         set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
+        set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
         
         REM Add DLL directory to PATH
         set PATH=%AMBEROL_DIR%bin;%PATH%
