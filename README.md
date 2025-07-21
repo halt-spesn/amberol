@@ -1,101 +1,39 @@
-Amberol
-=======
+# Amberol
 
-![Application icon](./data/icons/hicolor/scalable/apps/io.bassi.Amberol.svg)
+A small and simple sound and music player for Windows, built with Rust and GTK4.
 
-A small and simple sound and music player that is well integrated with GNOME and now available on Windows.
+## 🎵 Windows Port Features
 
-Amberol aspires to be as small, unintrusive, and simple as possible. It does
-not manage your music collection; it does not let you manage playlists, smart
-or otherwise; it does not let you edit the metadata for your songs; it does
-not show you lyrics for your songs, or the Wikipedia page for your bands.
+- **🎵 Full audio format support** - FLAC, MP3, OGG Vorbis, Opus, and more
+- **📁 Modern file browser** - Clean, intuitive interface for music discovery  
+- **🎨 Beautiful adaptive UI** - Built with GTK4 and libadwaita for native Windows feel
+- **📦 Self-contained portable** - No installation required, all dependencies included
+- **🎧 Advanced audio features** - Gapless playback, ReplayGain, waveform visualization
+- **💽 Rich metadata support** - Album art, tags, and music library organization
+- **⚡ High performance** - Rust-powered with GStreamer audio engine
 
-Amberol plays music, and nothing else.
+## 📥 Installation
 
-## Platform Support
+### Portable Version (Recommended)
+1. Download `amberol-windows-portable.zip` from [Releases](../../releases)
+2. Extract to any folder on your system
+3. Run `amberol.bat` to start the application
 
-- **Linux**: Primary platform with full GNOME integration via Flatpak
-- **Windows**: Native Windows 10/11 support with Windows-specific features
-- **FreeBSD**: Supported on FreeBSD systems
+No system installation or additional downloads required!
 
-![Full UI](./data/screenshots/amberol-full.png)
-![Compact UI](./data/screenshots/amberol-compact.png)
+### System Requirements
+- Windows 10 version 1809 or Windows 11
+- x64 (64-bit) architecture
+- Audio drivers (Windows Audio service running)
 
-Installation
-------------
+## 🔧 For Developers
 
-### Linux (Flatpak) - Recommended
+See [README-Windows.md](README-Windows.md) for detailed development information.
 
-The recommended way of installing Amberol on Linux is through Flatpak. If you don't have
-Flatpak installed, you can get it from [the Flatpak website](https://flatpak.org/setup).
+## 📄 License
 
-You can install stable builds of Amberol from [Flathub](https://flathub.org)
-by using this command:
+This project is licensed under the GPL-3.0-or-later. See [LICENSE.txt](LICENSE.txt) for details.
 
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    flatpak install flathub io.bassi.Amberol
+---
 
-<a href="https://flathub.org/apps/details/io.bassi.Amberol"><img src="https://flathub.org/api/badge?svg&locale=en" width="200"/></a>
-
-### Windows
-
-Amberol is available for Windows 10 and Windows 11:
-
-- **Installer**: Download `amberol-windows-installer.exe` for a traditional Windows installation with Start Menu integration and file associations
-- **Portable**: Download `amberol-windows-portable.zip` for a portable version that doesn't require installation
-
-For detailed Windows installation and usage instructions, see [README-Windows.md](README-Windows.md).
-
-Getting in touch
-----------------
-
-If you have questions about Amberol, you can join the [`#amberol:gnome.org`](https://matrix.to/#/#amberol:gnome.org)
-channel on Matrix, or use the [GNOME Discourse instance](https://discourse.gnome.org/c/applications/7).
-
-Contributing
-------------
-
-Please, see the [contribution guide](./CONTRIBUTING.md) if you wish to report
-and issue, fix a bug, or implement a new feature.
-
-How to obtain debugging information
------------------------------------
-
-Run Amberol from your terminal using:
-
-    RUST_BACKTRACE=1 RUST_LOG=amberol=debug flatpak run io.bassi.Amberol
-
-to obtain a full debug log.
-
-Translations
-------------
-
-Amberol is translated on the [GNOME translation platform](https://l10n.gnome.org/module/amberol).
-
-You should contact the coordinator of [the localization team for your language](https://l10n.gnome.org/teams/)
-if you have questions.
-
-For more information, please see the [GNOME Translation Project wiki](https://wiki.gnome.org/TranslationProject).
-
-Code of conduct
----------------
-
-Amberol follows the GNOME project [Code of Conduct](./code-of-conduct.md). All
-communications in project spaces, such as the issue tracker or
-[Discourse](https://discourse.gnome.org) are expected to follow it.
-
-Why is it called "Amberol"?
----------------------------
-
-The name comes from the the [Blue Amberol
-Records](https://en.wikipedia.org/wiki/Blue_Amberol_Records), a type of cylinder
-records made of (blue) nitrocellulose, capable of playback durations of around
-four minutes, just about the length of the average song since 1990.
-
-Copyright and licensing
------------------------
-
-Copyright 2022  Emmanuele Bassi
-
-Amberol is released under the terms of the GNU General Public License, either
-version 3.0 or, at your option, any later version.
+*Original Amberol by Emmanuele Bassi. Windows port with comprehensive portable packaging.*

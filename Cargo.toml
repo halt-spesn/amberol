@@ -57,18 +57,10 @@ version = "0.23"
 package = "gstreamer-player"
 version = "0.23"
 
-# Windows static linking configuration
-[target.'cfg(target_os = "windows")'.dependencies.gtk]
-package = "gtk4"
-version = "0.9"
-features = ["v4_14"]
-
-# Windows-specific build configuration
+# Windows-specific optimizations (not for static linking)
 [profile.release]
 lto = true
 codegen-units = 1
-panic = "abort"
-strip = true
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 embed-resource = "2.4"
