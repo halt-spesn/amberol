@@ -156,10 +156,24 @@ You can configure audio settings by setting environment variables or using the W
 4. Restart the application
 
 #### Application Won't Start
-1. Ensure you have the Microsoft Visual C++ 2019+ Redistributable installed
-2. Check Windows Event Viewer for error details
-3. Try running as Administrator
-4. Reinstall the application
+1. **Missing DLL Check**: Run the included `check_missing_dlls.ps1` script to identify missing dependencies:
+   ```powershell
+   # From the portable build directory
+   .\check_missing_dlls.ps1
+   ```
+2. Ensure you have the Microsoft Visual C++ 2019+ Redistributable installed
+3. Check Windows Event Viewer for error details
+4. Try running as Administrator
+5. Reinstall the application
+
+#### Missing DLL Errors (libffi-8.dll, liborc-0.4-0.dll, etc.)
+If you get specific DLL missing errors:
+1. Use the DLL checker tool: `.\check_missing_dlls.ps1`
+2. Download a fresh portable build from the latest release
+3. If using an older build, manually copy missing DLLs from MSYS2:
+   ```
+   C:\msys64\mingw64\bin\[missing-dll-name]
+   ```
 
 #### Poor Performance
 1. Update graphics drivers

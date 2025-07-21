@@ -151,8 +151,14 @@ jobs:
           "libFLAC-8.dll", "libsndfile-1.dll", "libmpg123-0.dll",
           
           # System libraries
-          "libffi-7.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
-          "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll"
+          "libffi-7.dll", "libffi-8.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
+          "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll",
+          
+          # Additional libraries often needed
+          "liborc-0.4-0.dll", "libappstream-5.dll", "libtiff-6.dll", "libtiff-5.dll",
+          "libsharpyuv-0.dll", "libdeflate.dll", "libjxl.dll", "libjxl_threads.dll",
+          "libhwy.dll", "libbrotlienc.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
+          "libzstd.dll", "libgdk_pixbuf-2.0-0.dll", "libepoxy-0.dll", "libatk-1.0-0.dll"
         )
         
         $copiedDlls = 0
@@ -176,7 +182,13 @@ jobs:
         
         # Copy ALL DLLs that match common patterns (backup strategy)
         Write-Host "🔄 Backup: Copying all matching DLLs by pattern..." -ForegroundColor Blue
-        $patterns = @("*gtk*.dll", "*adwaita*.dll", "*gst*.dll", "*glib*.dll", "*gobject*.dll", "*gio*.dll")
+        $patterns = @(
+          "*gtk*.dll", "*adwaita*.dll", "*gst*.dll", "*glib*.dll", "*gobject*.dll", "*gio*.dll",
+          "*cairo*.dll", "*pango*.dll", "*harfbuzz*.dll", "*freetype*.dll", "*fontconfig*.dll",
+          "*pixman*.dll", "*png*.dll", "*jpeg*.dll", "*tiff*.dll", "*webp*.dll",
+          "*orc*.dll", "*ffi*.dll", "*appstream*.dll", "*epoxy*.dll", "*atk*.dll",
+          "*vorbis*.dll", "*ogg*.dll", "*flac*.dll", "*opus*.dll", "*mpg123*.dll"
+        )
         $backupCopied = 0
         
         foreach ($pattern in $patterns) {
@@ -225,6 +237,56 @@ jobs:
           Write-Host "⚠️ Could not run objdump dependency analysis: $_" -ForegroundColor Yellow
         }
         
+        # Recursive dependency resolution - check DLL dependencies of copied DLLs
+        Write-Host "🔄 Recursive dependency resolution..." -ForegroundColor Blue
+        $maxIterations = 3
+        $currentIteration = 0
+        $newDepsFound = $true
+        
+        while ($newDepsFound -and $currentIteration -lt $maxIterations) {
+          $currentIteration++
+          $newDepsFound = $false
+          $iterationCopied = 0
+          
+          Write-Host "  📍 Iteration $currentIteration..." -ForegroundColor Gray
+          
+          $allDllsInBin = Get-ChildItem "$binDir" -Filter "*.dll"
+          foreach ($dll in $allDllsInBin) {
+            try {
+              $dllDeps = & objdump -p $dll.FullName 2>$null | Select-String "DLL Name:"
+              foreach ($depLine in $dllDeps) {
+                if ($depLine -match "DLL Name:\s*(.+)") {
+                  $depName = $matches[1].Trim()
+                  $depSourcePath = Join-Path $msys2BinPath $depName
+                  $depTargetPath = Join-Path $binDir $depName
+                  
+                  # Skip system DLLs
+                  if ($depName -match "^(kernel32|user32|ntdll|msvcrt|advapi32|ole32|shell32|ws2_32|winmm|version|comctl32|gdi32|comdlg32|winspool|oleaut32|uuid)\.dll$") {
+                    continue
+                  }
+                  
+                  if ((Test-Path $depSourcePath) -and (-not (Test-Path $depTargetPath))) {
+                    Copy-Item $depSourcePath $binDir -Force
+                    $iterationCopied++
+                    $newDepsFound = $true
+                    Write-Host "    🔗 $depName (dependency of $($dll.Name))" -ForegroundColor DarkCyan
+                  }
+                }
+              }
+            } catch {
+              # Skip DLLs that can't be analyzed
+            }
+          }
+          
+          if ($iterationCopied -gt 0) {
+            Write-Host "  ✅ Iteration $currentIteration: Found $iterationCopied additional dependencies" -ForegroundColor Green
+          } else {
+            Write-Host "  ✅ Iteration $currentIteration: No new dependencies found" -ForegroundColor Green
+          }
+        }
+        
+        Write-Host "✅ Recursive dependency resolution completed" -ForegroundColor Cyan
+        
         # Copy ALL GStreamer plugins
         Write-Host "📦 Copying all GStreamer plugins..." -ForegroundColor Blue
         $msys2LibPath = $msys2BinPath -replace "\\bin$", "\lib"
@@ -269,9 +331,10 @@ jobs:
         # Copy application resources
         Copy-Item "_build\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
         
-        # Copy documentation
+        # Copy documentation and utilities
         Copy-Item "README-Windows.md" $distDir -Force
         Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
+        Copy-Item "check_missing_dlls.ps1" $distDir -Force
         
         # Create enhanced launcher that sets up complete environment
         $launcher = @"
