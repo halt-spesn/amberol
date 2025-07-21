@@ -8,14 +8,26 @@ project('amberol', 'rust',
   default_options: [ 'warning_level=2', ],
 )
 
+# Platform detection
+is_windows = host_machine.system() == 'windows'
+is_linux = host_machine.system() == 'linux'
+
+# Dependencies
 dependency('gtk4', version: '>= 4.13.4')
 dependency('libadwaita-1', version: '>= 1.5')
 dependency('gstreamer-1.0', version: '>= 1.20')
 dependency('gstreamer-audio-1.0', version: '>= 1.20')
 dependency('gstreamer-player-1.0', version: '>= 1.20')
 dependency('gstreamer-plugins-base-1.0', version: '>= 1.20')
-dependency('gstreamer-plugins-bad-1.0', version: '>= 1.20')
-dependency('gstreamer-bad-audio-1.0', version: '>= 1.20')
+
+# Platform-specific dependencies
+if is_windows
+  # Additional Windows dependencies
+  message('Building for Windows')
+else
+  dependency('gstreamer-plugins-bad-1.0', version: '>= 1.20')
+  dependency('gstreamer-bad-audio-1.0', version: '>= 1.20')
+endif
 
 i18n = import('i18n')
 gnome = import('gnome')
@@ -67,11 +79,17 @@ meson.add_dist_script(
   meson.project_build_root() / 'meson-dist' / '@0@-@1@'.format(meson.project_name(), meson.project_version()),
 )
 
-gnome.post_install(
-  glib_compile_schemas: true,
-  gtk_update_icon_cache: true,
-  update_desktop_database: true,
-)
+# Platform-specific post-install tasks
+if is_windows
+  # Skip GNOME-specific post-install tasks on Windows
+  message('Skipping GNOME post-install tasks on Windows')
+else
+  gnome.post_install(
+    glib_compile_schemas: true,
+    gtk_update_icon_cache: true,
+    update_desktop_database: true,
+  )
+endif
 
 summary({
     'prefix': get_option('prefix'),
@@ -84,6 +102,7 @@ summary({
 
 summary({
     'Profile': get_option('profile'),
+    'Platform': host_machine.system(),
   },
   section: 'Build options',
 )

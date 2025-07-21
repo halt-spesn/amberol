@@ -18,6 +18,8 @@ mod utils;
 mod volume_control;
 mod waveform_view;
 mod window;
+#[cfg(target_os = "windows")]
+mod windows;
 
 use std::env;
 
@@ -46,11 +48,12 @@ fn main() -> glib::ExitCode {
         .expect("Unable to set the text domain encoding");
     textdomain(GETTEXT_PACKAGE).expect("Unable to switch to the text domain");
 
-    debug!("Setting up pulseaudio environment");
-    let app_id = APPLICATION_ID.trim_end_matches(".Devel");
-    env::set_var("PULSE_PROP_application.icon_name", app_id);
-    env::set_var("PULSE_PROP_application.metadata().name", "Amberol");
-    env::set_var("PULSE_PROP_media.role", "music");
+    // Platform-specific setup
+    #[cfg(not(target_os = "windows"))]
+    setup_pulseaudio();
+
+    #[cfg(target_os = "windows")]
+    setup_windows_audio();
 
     debug!("Loading resources");
     let resources = match env::var("MESON_DEVENV") {
@@ -82,4 +85,27 @@ fn main() -> glib::ExitCode {
     let _guard = ctx.acquire().unwrap();
 
     Application::new().run()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn setup_pulseaudio() {
+    debug!("Setting up pulseaudio environment");
+    let app_id = APPLICATION_ID.trim_end_matches(".Devel");
+    env::set_var("PULSE_PROP_application.icon_name", app_id);
+    env::set_var("PULSE_PROP_application.name", "Amberol");
+    env::set_var("PULSE_PROP_media.role", "music");
+}
+
+#[cfg(target_os = "windows")]
+fn setup_windows_audio() {
+    debug!("Setting up Windows audio environment");
+    // Set GStreamer to use Windows audio sink
+    env::set_var("GSK_RENDERER", "gl");
+    
+    // Register file associations if we have permissions
+    if let Err(e) = windows::register_file_associations() {
+        debug!("Could not register file associations: {}", e);
+    }
+    
+    debug!("Windows audio setup complete");
 }

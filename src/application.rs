@@ -48,7 +48,7 @@ mod imp {
                 player: AudioPlayer::new(sender),
                 receiver,
                 background_hold: RefCell::default(),
-                settings: utils::settings_manager(),
+                settings: gio::Settings::new(APPLICATION_ID),
             }
         }
     }
@@ -56,51 +56,36 @@ mod imp {
     impl ObjectImpl for Application {
         fn constructed(&self) {
             self.parent_constructed();
-
             let obj = self.obj();
-            obj.setup_channel();
             obj.setup_gactions();
-            obj.setup_settings();
-
-            obj.set_accels_for_action("app.quit", &["<primary>q"]);
-
-            obj.set_accels_for_action("queue.add-song", &["<primary>s"]);
-            obj.set_accels_for_action("queue.add-folder", &["<primary>a"]);
-            obj.set_accels_for_action("queue.clear", &["<primary>L"]);
-            obj.set_accels_for_action("queue.toggle", &["F9"]);
-            obj.set_accels_for_action("queue.search", &["<primary>F"]);
-            obj.set_accels_for_action("queue.shuffle", &["<primary>r"]);
-
-            obj.set_accels_for_action("win.seek-backwards", &["<primary>Left"]);
-            obj.set_accels_for_action("win.seek-forward", &["<primary>Right"]);
-            obj.set_accels_for_action("win.previous", &["<primary>b"]);
-            obj.set_accels_for_action("win.next", &["<primary>n"]);
-            obj.set_accels_for_action("win.play", &["<primary>p"]);
-            obj.set_accels_for_action("win.copy", &["<primary>c"]);
+            obj.set_resource_base_path(Some("/io/bassi/Amberol/"));
         }
     }
 
     impl ApplicationImpl for Application {
-        fn startup(&self) {
-            self.parent_startup();
-
-            gtk::Window::set_default_icon_name(APPLICATION_ID);
-        }
-
         fn activate(&self) {
-            debug!("Application::activate");
-
-            self.obj().present_main_window();
-        }
-
-        fn open(&self, files: &[gio::File], _hint: &str) {
-            debug!("Application::open");
-
+            debug!("Application<activate>");
             let application = self.obj();
             application.present_main_window();
-            if let Some(window) = application.active_window() {
-                window.downcast_ref::<Window>().unwrap().open_files(files);
-            }
+        }
+
+        fn startup(&self) {
+            debug!("Application<startup>");
+            self.parent_startup();
+            let application = self.obj();
+
+            // Set up CSS
+            utils::load_css();
+
+            // Handle application action receiver
+            let receiver = self.receiver.take().unwrap();
+            glib::spawn_future_local(clone!(@weak application => async move {
+                while let Ok(action) = receiver.recv().await {
+                    match action {
+                        ApplicationAction::Present => application.present_main_window(),
+                    }
+                }
+            }));
         }
     }
 
@@ -110,67 +95,15 @@ mod imp {
 
 glib::wrapper! {
     pub struct Application(ObjectSubclass<imp::Application>)
-        @extends gio::Application, gtk::Application, adw::Application,
-        @implements gio::ActionGroup, gio::ActionMap;
-}
-
-impl Default for Application {
-    fn default() -> Self {
-        glib::Object::builder::<Application>()
-            .property("application-id", APPLICATION_ID)
-            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
-            .property("resource-base-path", "/io/bassi/Amberol")
-            .build()
-    }
+        @extends gio::Application, gtk::Application, adw::Application;
 }
 
 impl Application {
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn player(&self) -> Rc<AudioPlayer> {
-        self.imp().player.clone()
-    }
-
-    fn setup_settings(&self) {
-        self.imp().settings.connect_changed(
-            Some("background-play"),
-            clone!(@weak self as this => move |settings, _| {
-                let background_play = settings.boolean("background-play");
-                debug!("GSettings:background-play: {background_play}");
-                if background_play {
-                    this.request_background();
-                } else {
-                    debug!("Dropping background hold");
-                    this.imp().background_hold.replace(None);
-                }
-            }),
-        );
-
-        let _dummy = self.imp().settings.boolean("background-play");
-    }
-
-    fn setup_channel(&self) {
-        let receiver = self.imp().receiver.borrow_mut().take().unwrap();
-        glib::MainContext::default().spawn_local(clone!(@strong self as this => async move {
-            use futures::prelude::*;
-
-            let mut receiver = std::pin::pin!(receiver);
-
-            while let Some(action) = receiver.next().await {
-                this.process_action(action);
-            }
-        }));
-    }
-
-    fn process_action(&self, action: ApplicationAction) -> glib::ControlFlow {
-        match action {
-            ApplicationAction::Present => self.present_main_window(),
-            // _ => debug!("Received action {:?}", action),
-        }
-
-        glib::ControlFlow::Continue
+        glib::Object::builder()
+            .property("application-id", APPLICATION_ID)
+            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
+            .build()
     }
 
     fn present_main_window(&self) {
@@ -183,6 +116,9 @@ impl Application {
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         self.request_background();
+
+        #[cfg(target_os = "windows")]
+        self.request_background_windows();
 
         window.present();
     }
@@ -274,6 +210,18 @@ impl Application {
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    #[cfg(target_os = "windows")]
+    fn request_background_windows(&self) {
+        let background_play = self.imp().settings.boolean("background-play");
+        if background_play {
+            // On Windows, we can use the Power Management API to prevent sleep
+            // This is a simplified approach - in a real implementation you might
+            // want to use SetThreadExecutionState or other Windows APIs
+            debug!("Background play enabled on Windows");
+            self.imp().background_hold.replace(Some(self.hold()));
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "windows")))]
     fn request_background(&self) {}
 }

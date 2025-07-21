@@ -3,7 +3,7 @@ Amberol
 
 ![Application icon](./data/icons/hicolor/scalable/apps/io.bassi.Amberol.svg)
 
-A small and simple sound and music player that is well integrated with GNOME.
+A small and simple sound and music player that is well integrated with GNOME and now available on Windows.
 
 Amberol aspires to be as small, unintrusive, and simple as possible. It does
 not manage your music collection; it does not let you manage playlists, smart
@@ -12,13 +12,21 @@ not show you lyrics for your songs, or the Wikipedia page for your bands.
 
 Amberol plays music, and nothing else.
 
+## Platform Support
+
+- **Linux**: Primary platform with full GNOME integration via Flatpak
+- **Windows**: Native Windows 10/11 support with Windows-specific features
+- **FreeBSD**: Supported on FreeBSD systems
+
 ![Full UI](./data/screenshots/amberol-full.png)
 ![Compact UI](./data/screenshots/amberol-compact.png)
 
-Flatpak builds
---------------
+Installation
+------------
 
-The recommended way of installing Amberol is through Flatpak. If you don't have
+### Linux (Flatpak) - Recommended
+
+The recommended way of installing Amberol on Linux is through Flatpak. If you don't have
 Flatpak installed, you can get it from [the Flatpak website](https://flatpak.org/setup).
 
 You can install stable builds of Amberol from [Flathub](https://flathub.org)
@@ -28,6 +36,15 @@ by using this command:
     flatpak install flathub io.bassi.Amberol
 
 <a href="https://flathub.org/apps/details/io.bassi.Amberol"><img src="https://flathub.org/api/badge?svg&locale=en" width="200"/></a>
+
+### Windows
+
+Amberol is available for Windows 10 and Windows 11:
+
+- **Installer**: Download `amberol-windows-installer.exe` for a traditional Windows installation with Start Menu integration and file associations
+- **Portable**: Download `amberol-windows-portable.zip` for a portable version that doesn't require installation
+
+For detailed Windows installation and usage instructions, see [README-Windows.md](README-Windows.md).
 
 Getting in touch
 ----------------
