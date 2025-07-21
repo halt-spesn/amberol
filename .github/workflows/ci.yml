@@ -56,7 +56,15 @@ jobs:
         export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig"
         
         echo "🔧 Configuring for portable build..."
-        meson setup _build --buildtype=release -Dprofile=default
+        meson setup _build --buildtype=release -Dprofile=default --reconfigure
+        
+        echo "🔍 Checking build configuration..."
+        if [ -f "_build/config.rs" ]; then
+          echo "✅ Meson generated config.rs found"
+          cat _build/config.rs
+        else
+          echo "⚠️ No meson config.rs found, will use fallback"
+        fi
         
         echo "🏗️ Building..."
         meson compile -C _build
@@ -415,6 +423,18 @@ jobs:
           foreach ($schemaFile in $appSchemaFiles) {
             Copy-Item $schemaFile.FullName $schemasDir -Force
             Write-Host "  ✅ Copied $($schemaFile.Name) from $($schemaFile.DirectoryName)" -ForegroundColor Green
+          }
+          
+          # Also create a release version if we only have development schema
+          $devSchema = Join-Path $schemasDir "io.bassi.Amberol.Devel.gschema.xml"
+          $releaseSchema = Join-Path $schemasDir "io.bassi.Amberol.gschema.xml"
+          
+          if ((Test-Path $devSchema) -and (-not (Test-Path $releaseSchema))) {
+            Write-Host "  🔄 Creating release schema from development schema..." -ForegroundColor Blue
+            $content = Get-Content $devSchema -Raw
+            $content = $content -replace 'io\.bassi\.Amberol\.Devel', 'io.bassi.Amberol'
+            Set-Content -Path $releaseSchema -Value $content
+            Write-Host "  ✅ Created io.bassi.Amberol.gschema.xml" -ForegroundColor Green
           }
           
           # Compile schemas using glib-compile-schemas

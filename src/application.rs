@@ -9,7 +9,7 @@ use ashpd::{desktop::background::Background, WindowIdentifier};
 use async_channel::Receiver;
 use glib::clone;
 use gtk::{gio, glib, prelude::*};
-use log::{debug, warn};
+use log::{debug, info, warn, error};
 
 use crate::{
     audio::AudioPlayer,
@@ -44,11 +44,48 @@ mod imp {
             let (sender, r) = async_channel::unbounded();
             let receiver = RefCell::new(Some(r));
 
+            // Try to create settings with fallback for schema ID issues
+            let settings = Self::create_settings_with_fallback();
+            
             Self {
                 player: AudioPlayer::new(sender),
                 receiver,
                 background_hold: RefCell::default(),
-                settings: gio::Settings::new(APPLICATION_ID),
+                settings,
+            }
+        }
+        
+        fn create_settings_with_fallback() -> gio::Settings {
+            // First try the configured APPLICATION_ID
+            match std::panic::catch_unwind(|| gio::Settings::new(APPLICATION_ID)) {
+                Ok(settings) => {
+                    debug!("Successfully loaded settings with schema: {}", APPLICATION_ID);
+                    settings
+                },
+                Err(_) => {
+                    // If APPLICATION_ID is a development schema, try the release version
+                    if APPLICATION_ID.ends_with(".Devel") {
+                        let release_id = APPLICATION_ID.replace(".Devel", "");
+                        warn!("Development schema '{}' not found, trying release schema '{}'", APPLICATION_ID, release_id);
+                        
+                        match std::panic::catch_unwind(|| gio::Settings::new(&release_id)) {
+                            Ok(settings) => {
+                                info!("Successfully loaded release schema: {}", release_id);
+                                settings
+                            },
+                            Err(_) => {
+                                error!("Neither development nor release schema found");
+                                error!("Attempted schemas: '{}', '{}'", APPLICATION_ID, release_id);
+                                error!("This is likely a packaging issue - GSettings schemas not properly installed");
+                                panic!("Cannot initialize application without settings schema");
+                            }
+                        }
+                    } else {
+                        error!("Settings schema '{}' not found", APPLICATION_ID);
+                        error!("This is likely a packaging issue - GSettings schemas not properly installed");
+                        panic!("Cannot initialize application without settings schema");
+                    }
+                }
             }
         }
     }
