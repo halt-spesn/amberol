@@ -26,7 +26,7 @@ use std::env;
 use config::{APPLICATION_ID, GETTEXT_PACKAGE, LOCALEDIR, PKGDATADIR, PROFILE};
 use gettextrs::{bind_textdomain_codeset, bindtextdomain, setlocale, textdomain, LocaleCategory};
 use gtk::{gio, glib, prelude::*};
-use log::{debug, error, LevelFilter};
+use log::{debug, error, info, LevelFilter};
 
 use self::application::Application;
 
@@ -56,23 +56,64 @@ fn main() -> glib::ExitCode {
     setup_windows_audio();
 
     debug!("Loading resources");
-    let resources = match env::var("MESON_DEVENV") {
-        Err(_) => gio::Resource::load(PKGDATADIR.to_owned() + "/amberol.gresource")
-            .expect("Unable to find amberol.gresource"),
-        Ok(_) => match env::current_exe() {
-            Ok(path) => {
-                let mut resource_path = path;
-                resource_path.pop();
-                resource_path.push("amberol.gresource");
-                gio::Resource::load(&resource_path)
-                    .expect("Unable to find amberol.gresource in devenv")
+    
+    // Try multiple locations for the GResource file for portable compatibility
+    let mut resource_locations = Vec::new();
+    
+    // Add portable/relative locations first (for Windows portable builds)
+    if let Ok(exe_path) = env::current_exe() {
+        let exe_dir = exe_path.parent().unwrap();
+        
+        // Try in the same directory as the executable
+        resource_locations.push(exe_dir.join("amberol.gresource"));
+        
+        // Try in ../share/ relative to executable (portable structure)
+        resource_locations.push(exe_dir.parent().unwrap_or(exe_dir).join("share").join("amberol.gresource"));
+        
+        // Try in ../share/amberol/ relative to executable
+        resource_locations.push(exe_dir.parent().unwrap_or(exe_dir).join("share").join("amberol").join("amberol.gresource"));
+    }
+    
+    // Add system locations (for installed builds)
+    resource_locations.push(std::path::PathBuf::from(PKGDATADIR.to_owned() + "/amberol.gresource"));
+    
+    // For development builds
+    if env::var("MESON_DEVENV").is_ok() {
+        if let Ok(exe_path) = env::current_exe() {
+            let exe_dir = exe_path.parent().unwrap();
+            resource_locations.insert(0, exe_dir.join("amberol.gresource"));
+        }
+    }
+    
+    let mut resources = None;
+    let mut last_error = None;
+    
+    for location in &resource_locations {
+        debug!("Trying to load resources from: {:?}", location);
+        match gio::Resource::load(location) {
+            Ok(res) => {
+                info!("Successfully loaded resources from: {:?}", location);
+                resources = Some(res);
+                break;
             }
             Err(err) => {
-                error!("Unable to find the current path: {}", err);
-                return glib::ExitCode::FAILURE;
+                debug!("Failed to load from {:?}: {}", location, err);
+                last_error = Some(err);
             }
-        },
-    };
+        }
+    }
+    
+    let resources = resources.unwrap_or_else(|| {
+        eprintln!("Unable to find amberol.gresource in any of these locations:");
+        for location in &resource_locations {
+            eprintln!("  - {:?}", location);
+        }
+        if let Some(err) = last_error {
+            panic!("Last error: {}", err);
+        } else {
+            panic!("No resource locations were tried");
+        }
+    });
     gio::resources_register(&resources);
 
     debug!("Setting up application (profile: {})", &PROFILE);

@@ -328,8 +328,39 @@ jobs:
           Write-Host "⚠️ GLib schemas not found at ${glibSchemas}" -ForegroundColor Yellow
         }
         
-        # Copy application resources
-        Copy-Item "_build\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
+        # Copy application resources to multiple locations for portability
+        Write-Host "📦 Copying application resources..." -ForegroundColor Blue
+        
+        # Find the GResource file
+        $gresourceFiles = Get-ChildItem "_build" -Recurse -Filter "*.gresource" -ErrorAction SilentlyContinue
+        
+        if ($gresourceFiles.Count -gt 0) {
+          foreach ($gresourceFile in $gresourceFiles) {
+            # Copy to share directory (standard location)
+            Copy-Item $gresourceFile.FullName $shareDir -Force
+            
+            # Copy to bin directory (for direct executable access)
+            Copy-Item $gresourceFile.FullName $binDir -Force
+            
+            Write-Host "  ✅ $($gresourceFile.Name) copied to both bin/ and share/" -ForegroundColor Green
+          }
+        } else {
+          Write-Host "  ⚠️ No .gresource files found in _build" -ForegroundColor Yellow
+          
+          # Try alternative locations
+          $altPaths = @("_build\data", "_build\src", "data")
+          foreach ($altPath in $altPaths) {
+            if (Test-Path $altPath) {
+              $altGresource = Get-ChildItem $altPath -Filter "*.gresource" -ErrorAction SilentlyContinue
+              if ($altGresource) {
+                Copy-Item $altGresource.FullName $shareDir -Force
+                Copy-Item $altGresource.FullName $binDir -Force
+                Write-Host "  ✅ Found and copied $($altGresource.Name) from $altPath" -ForegroundColor Green
+                break
+              }
+            }
+          }
+        }
         
         # Copy documentation and utilities
         Copy-Item "README-Windows.md" $distDir -Force
