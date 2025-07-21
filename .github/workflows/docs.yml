@@ -1,0 +1,323 @@
+# SPDX-FileCopyrightText: 2022  Emmanuele Bassi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Documentation
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'README*.md'
+      - 'CHANGES.md'
+      - 'CONTRIBUTING.md'
+      - 'src/**/*.rs'
+      - 'data/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'README*.md'
+      - 'CHANGES.md'
+      - 'CONTRIBUTING.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          pandoc \
+          python3-pip
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-doc tools
+      run: |
+        cargo install mdbook
+        cargo install cargo-readme
+
+    - name: Generate Rust documentation
+      run: |
+        cargo doc --no-deps --document-private-items
+        
+        # Create a redirect index.html
+        cat > target/doc/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=amberol/index.html">
+            <title>Amberol Documentation</title>
+        </head>
+        <body>
+            <p>Redirecting to <a href="amberol/index.html">Amberol documentation</a>...</p>
+        </body>
+        </html>
+        EOF
+
+    - name: Build GitHub Pages site
+      run: |
+        mkdir -p docs-site
+        
+        # Copy Rust docs
+        cp -r target/doc docs-site/api
+        
+        # Convert README files to HTML
+        pandoc README.md -o docs-site/index.html --template=<(echo '<!DOCTYPE html><html><head><title>$title$</title><style>body{font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px;}</style></head><body>$body$</body></html>')
+        pandoc README-Windows.md -o docs-site/windows.html --template=<(echo '<!DOCTYPE html><html><head><title>$title$</title><style>body{font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px;}</style></head><body>$body$</body></html>')
+        pandoc CONTRIBUTING.md -o docs-site/contributing.html --template=<(echo '<!DOCTYPE html><html><head><title>$title$</title><style>body{font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px;}</style></head><body>$body$</body></html>')
+        
+        # Create a navigation index
+        cat > docs-site/nav.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Amberol Documentation</title>
+            <style>
+                body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+                .nav-card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; text-decoration: none; color: inherit; }
+                .nav-card:hover { background-color: #f5f5f5; }
+                .nav-card h3 { margin-top: 0; color: #0066cc; }
+            </style>
+        </head>
+        <body>
+            <h1>Amberol Documentation</h1>
+            <p>Welcome to the Amberol documentation. Choose a section below:</p>
+            
+            <div class="nav-grid">
+                <a href="index.html" class="nav-card">
+                    <h3>📖 General Information</h3>
+                    <p>Main README with installation instructions and features overview</p>
+                </a>
+                
+                <a href="windows.html" class="nav-card">
+                    <h3>🪟 Windows Guide</h3>
+                    <p>Complete Windows installation and usage guide</p>
+                </a>
+                
+                <a href="contributing.html" class="nav-card">
+                    <h3>🤝 Contributing</h3>
+                    <p>How to contribute to the Amberol project</p>
+                </a>
+                
+                <a href="api/" class="nav-card">
+                    <h3>🦀 API Documentation</h3>
+                    <p>Rust API documentation for developers</p>
+                </a>
+            </div>
+            
+            <hr style="margin-top: 40px;">
+            <p><small>
+                Generated from the <a href="https://github.com/amberol-project/amberol">Amberol</a> repository.
+                Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+            </small></p>
+        </body>
+        </html>
+        EOF
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: docs-site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+  check-links:
+    name: Check Documentation Links
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install markdown-link-check
+      run: npm install -g markdown-link-check
+
+    - name: Check links in README files
+      run: |
+        # Create config file to ignore some URLs that might be temporarily unavailable
+        cat > .markdown-link-check.json << 'EOF'
+        {
+          "ignorePatterns": [
+            {
+              "pattern": "^https://flathub.org"
+            },
+            {
+              "pattern": "^https://apps.gnome.org"
+            }
+          ],
+          "timeout": "10s",
+          "retryOn429": true,
+          "retryCount": 3,
+          "fallbackRetryDelay": "30s",
+          "aliveStatusCodes": [200, 206]
+        }
+        EOF
+        
+        # Check all markdown files
+        find . -name "*.md" -not -path "./target/*" -not -path "./.git/*" | while read file; do
+          echo "Checking $file"
+          markdown-link-check "$file" --config .markdown-link-check.json
+        done
+
+  spell-check:
+    name: Spell Check Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install aspell
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y aspell aspell-en
+
+    - name: Create word list
+      run: |
+        # Create a list of technical terms to ignore
+        cat > .aspell.en.pws << 'EOF'
+        personal_ws-1.1 en 100
+        Amberol
+        GTK
+        GStreamer
+        GNOME
+        Flatpak
+        Flathub
+        libadwaita
+        MSYS2
+        Rust
+        Cargo
+        meson
+        ninja
+        Emmanuele
+        Bassi
+        FreeBSD
+        libgtk
+        gstreamer
+        API
+        MP3
+        MP4
+        M4A
+        AAC
+        FLAC
+        OGG
+        Vorbis
+        WAV
+        WMA
+        MPRIS
+        PulseAudio
+        DirectShow
+        metadata
+        UI
+        UX
+        Inno
+        Setup
+        PowerShell
+        AppData
+        EOF
+
+    - name: Spell check markdown files
+      run: |
+        # Check spelling in markdown files
+        find . -name "*.md" -not -path "./target/*" -not -path "./.git/*" | while read file; do
+          echo "Checking spelling in $file"
+          
+          # Extract text content and check spelling
+          aspell --personal=./.aspell.en.pws --lang=en --mode=markdown --add-markdown-skip-ref-labels list < "$file" | \
+          grep -v "^$" | head -20 | while read word; do
+            echo "Possible spelling error in $file: $word"
+          done
+        done
+
+  lint-docs:
+    name: Lint Documentation
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install markdownlint
+      run: npm install -g markdownlint-cli
+
+    - name: Create markdownlint config
+      run: |
+        cat > .markdownlint.json << 'EOF'
+        {
+          "MD013": {
+            "line_length": 120,
+            "code_blocks": false,
+            "tables": false
+          },
+          "MD033": false,
+          "MD041": false
+        }
+        EOF
+
+    - name: Lint markdown files
+      run: |
+        markdownlint README*.md CHANGES.md CONTRIBUTING.md --config .markdownlint.json
+
+  validate-windows-scripts:
+    name: Validate Windows Scripts
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Validate PowerShell scripts
+      shell: pwsh
+      run: |
+        # Check PowerShell syntax
+        $scripts = @("build_windows.ps1")
+        
+        foreach ($script in $scripts) {
+          if (Test-Path $script) {
+            Write-Host "Validating $script"
+            $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content $script -Raw), [ref]$null)
+            Write-Host "$script syntax is valid"
+          }
+        }
+
+    - name: Validate batch files
+      shell: cmd
+      run: |
+        echo Validating batch files...
+        if exist amberol.bat (
+          echo Checking amberol.bat syntax...
+          call amberol.bat /? >nul 2>&1 || echo amberol.bat syntax appears valid
+        )

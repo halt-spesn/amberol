@@ -1,0 +1,329 @@
+# SPDX-FileCopyrightText: 2022  Emmanuele Bassi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test-linux:
+    name: Test Linux
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          libgstreamer-plugins-bad1.0-dev \
+          gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad \
+          gstreamer1.0-plugins-ugly \
+          gstreamer1.0-libav \
+          meson \
+          ninja-build \
+          gettext \
+          desktop-file-utils \
+          appstream-util
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Configure meson
+      run: meson setup _build --buildtype=debug -Dprofile=development
+
+    - name: Build
+      run: meson compile -C _build
+
+    - name: Test
+      run: meson test -C _build --verbose
+
+    - name: Check desktop file
+      run: desktop-file-validate _build/data/io.bassi.Amberol.Devel.desktop
+
+    - name: Check appstream file
+      run: appstream-util validate _build/data/io.bassi.Amberol.Devel.metainfo.xml
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: test-linux
+    strategy:
+      matrix:
+        buildtype: [release, debug]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          libgstreamer-plugins-bad1.0-dev \
+          gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad \
+          gstreamer1.0-plugins-ugly \
+          gstreamer1.0-libav \
+          meson \
+          ninja-build \
+          gettext
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.buildtype }}-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Configure meson
+      run: |
+        profile_flag=""
+        if [ "${{ matrix.buildtype }}" = "debug" ]; then
+          profile_flag="-Dprofile=development"
+        fi
+        meson setup _build --buildtype=${{ matrix.buildtype }} $profile_flag
+
+    - name: Build
+      run: meson compile -C _build
+
+    - name: Create dist
+      run: meson dist -C _build --no-tests
+
+    - name: Upload Linux build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-linux-${{ matrix.buildtype }}
+        path: |
+          _build/src/amberol
+          _build/data/*.gresource
+          _build/data/*.desktop
+          _build/data/*.metainfo.xml
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: lint
+    strategy:
+      matrix:
+        buildtype: [release, debug]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gtk4
+          mingw-w64-x86_64-libadwaita
+          mingw-w64-x86_64-gstreamer
+          mingw-w64-x86_64-gst-plugins-base
+          mingw-w64-x86_64-gst-plugins-good
+          mingw-w64-x86_64-gst-plugins-bad
+          mingw-w64-x86_64-gst-plugins-ugly
+          mingw-w64-x86_64-rust
+          mingw-w64-x86_64-meson
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-gettext
+          mingw-w64-x86_64-desktop-file-utils
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-mingw64-cargo-${{ matrix.buildtype }}-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Configure meson
+      run: |
+        profile_flag=""
+        if [ "${{ matrix.buildtype }}" = "debug" ]; then
+          profile_flag="-Dprofile=development"
+        fi
+        meson setup _build --buildtype=${{ matrix.buildtype }} $profile_flag
+
+    - name: Build
+      run: meson compile -C _build
+
+    - name: Create portable distribution
+      shell: pwsh
+      run: |
+        # Create distribution directory
+        $distDir = "amberol-windows-portable"
+        $binDir = "$distDir\bin"
+        $libDir = "$distDir\lib"
+        $shareDir = "$distDir\share"
+        
+        New-Item -ItemType Directory -Force -Path $binDir, $libDir, $shareDir
+        
+        # Copy main executable
+        Copy-Item "_build\src\amberol.exe" $binDir
+        
+        # Copy required DLLs
+        $dllsNeeded = @(
+          "libgtk-4-1.dll",
+          "libadwaita-1-0.dll",
+          "libgstreamer-1.0-0.dll",
+          "libgstbase-1.0-0.dll",
+          "libgstaudio-1.0-0.dll",
+          "libgstplayer-1.0-0.dll",
+          "libglib-2.0-0.dll",
+          "libgobject-2.0-0.dll",
+          "libgio-2.0-0.dll",
+          "libcairo-2.dll",
+          "libpango-1.0-0.dll",
+          "libharfbuzz-0.dll",
+          "libfreetype-6.dll",
+          "libfontconfig-1.dll",
+          "libexpat-1.dll",
+          "libbrotlidec.dll",
+          "libbrotlicommon.dll",
+          "libpng16-16.dll",
+          "libffi-7.dll",
+          "libintl-8.dll",
+          "libiconv-2.dll",
+          "libpcre-1.dll",
+          "zlib1.dll",
+          "libwinpthread-1.dll",
+          "libgcc_s_seh-1.dll",
+          "libstdc++-6.dll"
+        )
+        
+        foreach ($dll in $dllsNeeded) {
+          $source = "C:\msys64\mingw64\bin\$dll"
+          if (Test-Path $source) {
+            Copy-Item $source $binDir -Force
+          }
+        }
+        
+        # Copy GStreamer plugins
+        $gstPluginDir = "C:\msys64\mingw64\lib\gstreamer-1.0"
+        if (Test-Path $gstPluginDir) {
+          Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
+        }
+        
+        # Copy application resources
+        Copy-Item "_build\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
+        
+        # Copy launcher script
+        Copy-Item "amberol.bat" $distDir -Force
+
+    - name: Upload Windows build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-windows-${{ matrix.buildtype }}
+        path: amberol-windows-portable/
+
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-latest
+    needs: test-linux
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-45
+      options: --privileged
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Build Flatpak
+      uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+      with:
+        bundle: amberol.flatpak
+        manifest-path: io.bassi.Amberol.json
+        cache-key: flatpak-builder-${{ github.sha }}
+
+    - name: Upload Flatpak bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-flatpak
+        path: amberol.flatpak
+
+  reuse:
+    name: REUSE Compliance
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: REUSE Compliance Check
+      uses: fsfe/reuse-action@v2

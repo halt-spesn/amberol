@@ -1,0 +1,427 @@
+# SPDX-FileCopyrightText: 2022  Emmanuele Bassi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Nightly
+
+on:
+  schedule:
+    # Run every day at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check-changes:
+    name: Check for Changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.changes.outputs.should_build }}
+      commit_hash: ${{ steps.changes.outputs.commit_hash }}
+      commit_date: ${{ steps.changes.outputs.commit_date }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Check for changes
+      id: changes
+      run: |
+        # Get the latest commit info
+        commit_hash=$(git rev-parse --short HEAD)
+        commit_date=$(git log -1 --format=%cd --date=format:%Y%m%d)
+        echo "commit_hash=$commit_hash" >> $GITHUB_OUTPUT
+        echo "commit_date=$commit_date" >> $GITHUB_OUTPUT
+        
+        # Check if there are any changes in the last 24 hours
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "should_build=true" >> $GITHUB_OUTPUT
+          echo "Manual trigger - building nightly"
+        else
+          # Check for commits in the last 24 hours
+          if git log --since="24 hours ago" --oneline | grep -q .; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in last 24 hours - building nightly"
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "No changes in last 24 hours - skipping nightly build"
+          fi
+        fi
+
+  build-nightly-linux:
+    name: Build Nightly Linux
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          libgstreamer-plugins-bad1.0-dev \
+          gstreamer1.0-plugins-base \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad \
+          gstreamer1.0-plugins-ugly \
+          gstreamer1.0-libav \
+          meson \
+          ninja-build \
+          gettext
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Configure meson (development profile)
+      run: meson setup _build --buildtype=debug -Dprofile=development
+
+    - name: Build
+      run: meson compile -C _build
+
+    - name: Create nightly tarball
+      run: |
+        mkdir -p dist
+        version="nightly-${{ needs.check-changes.outputs.commit_date }}-${{ needs.check-changes.outputs.commit_hash }}"
+        tar -czf dist/amberol-${version}-linux-x86_64.tar.gz \
+          -C _build/src amberol \
+          -C ../data amberol.gresource
+
+    - name: Upload Linux nightly artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-linux-nightly
+        path: dist/
+        retention-days: 30
+
+  build-nightly-windows:
+    name: Build Nightly Windows
+    runs-on: windows-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gtk4
+          mingw-w64-x86_64-libadwaita
+          mingw-w64-x86_64-gstreamer
+          mingw-w64-x86_64-gst-plugins-base
+          mingw-w64-x86_64-gst-plugins-good
+          mingw-w64-x86_64-gst-plugins-bad
+          mingw-w64-x86_64-gst-plugins-ugly
+          mingw-w64-x86_64-rust
+          mingw-w64-x86_64-meson
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-gettext
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-mingw64-cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Configure meson (development profile)
+      run: meson setup _build --buildtype=debug -Dprofile=development
+
+    - name: Build
+      run: meson compile -C _build
+
+    - name: Create portable distribution
+      shell: pwsh
+      run: |
+        # Create distribution directory
+        $version = "nightly-${{ needs.check-changes.outputs.commit_date }}-${{ needs.check-changes.outputs.commit_hash }}"
+        $distDir = "amberol-windows-portable-$version"
+        $binDir = "$distDir\bin"
+        $libDir = "$distDir\lib"
+        $shareDir = "$distDir\share"
+        
+        New-Item -ItemType Directory -Force -Path $binDir, $libDir, $shareDir
+        
+        # Copy main executable
+        Copy-Item "_build\src\amberol.exe" $binDir
+        
+        # Copy required DLLs
+        $dllsNeeded = @(
+          "libgtk-4-1.dll",
+          "libadwaita-1-0.dll",
+          "libgstreamer-1.0-0.dll",
+          "libgstbase-1.0-0.dll",
+          "libgstaudio-1.0-0.dll",
+          "libgstplayer-1.0-0.dll",
+          "libglib-2.0-0.dll",
+          "libgobject-2.0-0.dll",
+          "libgio-2.0-0.dll",
+          "libcairo-2.dll",
+          "libpango-1.0-0.dll",
+          "libharfbuzz-0.dll",
+          "libfreetype-6.dll",
+          "libfontconfig-1.dll",
+          "libexpat-1.dll",
+          "libbrotlidec.dll",
+          "libbrotlicommon.dll",
+          "libpng16-16.dll",
+          "libffi-7.dll",
+          "libintl-8.dll",
+          "libiconv-2.dll",
+          "libpcre-1.dll",
+          "zlib1.dll",
+          "libwinpthread-1.dll",
+          "libgcc_s_seh-1.dll",
+          "libstdc++-6.dll"
+        )
+        
+        foreach ($dll in $dllsNeeded) {
+          $source = "C:\msys64\mingw64\bin\$dll"
+          if (Test-Path $source) {
+            Copy-Item $source $binDir -Force
+          }
+        }
+        
+        # Copy GStreamer plugins
+        $gstPluginDir = "C:\msys64\mingw64\lib\gstreamer-1.0"
+        if (Test-Path $gstPluginDir) {
+          Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
+        }
+        
+        # Copy application resources
+        Copy-Item "_build\data\*.gresource" $shareDir -ErrorAction SilentlyContinue
+        
+        # Copy documentation
+        Copy-Item "README-Windows.md" $distDir -Force
+        Copy-Item "COPYING" $distDir -Force
+        
+        # Create a nightly notice
+        @"
+        AMBEROL NIGHTLY BUILD
+        =====================
+        
+        This is a development snapshot of Amberol.
+        
+        Build Information:
+        - Date: ${{ needs.check-changes.outputs.commit_date }}
+        - Commit: ${{ needs.check-changes.outputs.commit_hash }}
+        - Built: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')
+        
+        This build may contain bugs and unstable features.
+        Use at your own risk!
+        
+        For stable releases, visit:
+        https://github.com/amberol-project/amberol/releases
+        "@ | Out-File -FilePath "$distDir\NIGHTLY-BUILD.txt" -Encoding UTF8
+        
+        # Copy launcher script
+        Copy-Item "amberol.bat" $distDir -Force
+        
+        # Create ZIP
+        New-Item -ItemType Directory -Force -Path dist
+        Compress-Archive -Path "$distDir\*" -DestinationPath "dist\amberol-${version}-windows-x86_64-portable.zip"
+
+    - name: Upload Windows nightly artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-windows-nightly
+        path: dist/
+        retention-days: 30
+
+  build-nightly-flatpak:
+    name: Build Nightly Flatpak
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-45
+      options: --privileged
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Update Flatpak manifest for nightly
+      run: |
+        # Create a nightly version of the manifest
+        cp io.bassi.Amberol.json io.bassi.Amberol.Devel.json
+        
+        # Update app ID and add nightly-specific metadata
+        sed -i 's/"io.bassi.Amberol"/"io.bassi.Amberol.Devel"/g' io.bassi.Amberol.Devel.json
+        
+        # Update the source to point to current commit
+        jq --arg commit "${{ github.sha }}" \
+           '.modules[0].sources[0].commit = $commit' \
+           io.bassi.Amberol.Devel.json > temp.json && mv temp.json io.bassi.Amberol.Devel.json
+
+    - name: Build Flatpak
+      uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
+      with:
+        bundle: amberol-nightly-${{ needs.check-changes.outputs.commit_date }}-${{ needs.check-changes.outputs.commit_hash }}.flatpak
+        manifest-path: io.bassi.Amberol.Devel.json
+        cache-key: flatpak-builder-nightly-${{ github.sha }}
+
+    - name: Upload Flatpak nightly artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-flatpak-nightly
+        path: amberol-nightly-*.flatpak
+        retention-days: 30
+
+  create-nightly-release:
+    name: Create Nightly Release
+    runs-on: ubuntu-latest
+    needs: [check-changes, build-nightly-linux, build-nightly-windows, build-nightly-flatpak]
+    if: needs.check-changes.outputs.should_build == 'true'
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare nightly assets
+      run: |
+        mkdir -p nightly-assets
+        
+        # Copy all build artifacts
+        find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.flatpak" \) -exec cp {} nightly-assets/ \;
+        
+        # List files for verification
+        ls -la nightly-assets/
+
+    - name: Delete existing nightly release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Delete existing nightly release and tag
+        gh release delete nightly --yes || true
+        git push --delete origin nightly || true
+
+    - name: Create nightly release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        version="nightly-${{ needs.check-changes.outputs.commit_date }}-${{ needs.check-changes.outputs.commit_hash }}"
+        
+        # Create release notes
+        cat > nightly_notes.md << EOF
+        # Amberol Nightly Build
+        
+        **⚠️ This is a development snapshot and may contain bugs!**
+        
+        ## Build Information
+        - **Date**: ${{ needs.check-changes.outputs.commit_date }}
+        - **Commit**: [\`${{ needs.check-changes.outputs.commit_hash }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+        - **Built**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        
+        ## Recent Changes
+        $(git log --oneline -10 --pretty=format:"- %s (%h)")
+        
+        ## Downloads
+        
+        - **Linux**: \`amberol-${version}-linux-x86_64.tar.gz\`
+        - **Windows Portable**: \`amberol-${version}-windows-x86_64-portable.zip\`
+        - **Flatpak**: \`amberol-nightly-*.flatpak\`
+        
+        ## Installation
+        
+        ### Linux
+        Extract the tarball and run the \`amberol\` binary.
+        
+        ### Windows
+        Extract the ZIP file and run \`amberol.bat\`.
+        
+        ### Flatpak
+        Install with: \`flatpak install --user amberol-nightly-*.flatpak\`
+        
+        ---
+        
+        **Note**: Nightly builds are automatically created when there are changes to the main branch.
+        For stable releases, see the [main releases page](https://github.com/${{ github.repository }}/releases).
+        EOF
+        
+        # Create the release
+        gh release create nightly \
+          --title "Amberol Nightly ($version)" \
+          --notes-file nightly_notes.md \
+          --prerelease \
+          --target ${{ github.sha }} \
+          nightly-assets/*
+
+  cleanup-old-nightlies:
+    name: Cleanup Old Nightly Artifacts
+    runs-on: ubuntu-latest
+    needs: create-nightly-release
+    if: always() && needs.check-changes.outputs.should_build == 'true'
+    steps:
+    - name: Cleanup old artifacts
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Get all workflow runs for nightly workflow
+          const runs = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'nightly.yml',
+            status: 'completed',
+            per_page: 100
+          });
+          
+          // Keep artifacts for the last 7 days only
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          
+          for (const run of runs.data.workflow_runs) {
+            const runDate = new Date(run.created_at);
+            if (runDate < sevenDaysAgo) {
+              console.log(`Deleting artifacts for run ${run.id} from ${runDate}`);
+              
+              // Get artifacts for this run
+              const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+              
+              // Delete each artifact
+              for (const artifact of artifacts.data.artifacts) {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+                console.log(`Deleted artifact ${artifact.name}`);
+              }
+            }
+          }

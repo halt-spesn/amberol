@@ -1,0 +1,302 @@
+# SPDX-FileCopyrightText: 2022  Emmanuele Bassi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Dependencies
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Run cargo audit
+      run: cargo audit
+
+    - name: Create issue if audit fails
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `Security vulnerability detected in dependencies`;
+          const body = `
+          A security vulnerability has been detected in the project dependencies.
+          
+          Please run \`cargo audit\` locally to see the details and update the affected dependencies.
+          
+          This issue was automatically created by the Dependencies workflow.
+          `;
+          
+          // Check if similar issue already exists
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: ['security', 'dependencies']
+          });
+          
+          const existingIssue = issues.find(issue => 
+            issue.title.includes('Security vulnerability detected')
+          );
+          
+          if (!existingIssue) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['security', 'dependencies', 'automated']
+            });
+          }
+
+  outdated:
+    name: Check Outdated Dependencies
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-outdated
+      run: cargo install cargo-outdated
+
+    - name: Check for outdated dependencies
+      id: outdated
+      run: |
+        cargo outdated --format json > outdated.json
+        cat outdated.json
+        
+        # Check if there are any outdated dependencies
+        outdated_count=$(jq '.dependencies | length' outdated.json)
+        echo "outdated_count=$outdated_count" >> $GITHUB_OUTPUT
+        
+        if [ "$outdated_count" -gt 0 ]; then
+          echo "has_outdated=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_outdated=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload outdated report
+      if: steps.outdated.outputs.has_outdated == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: outdated-dependencies
+        path: outdated.json
+
+    - name: Create issue for outdated dependencies
+      if: steps.outdated.outputs.has_outdated == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const outdatedData = JSON.parse(fs.readFileSync('outdated.json', 'utf8'));
+          
+          let body = `
+          The following dependencies are outdated:
+          
+          | Package | Current | Latest | Kind |
+          |---------|---------|--------|------|
+          `;
+          
+          outdatedData.dependencies.forEach(dep => {
+            body += `| ${dep.name} | ${dep.project} | ${dep.latest} | ${dep.kind} |\n`;
+          });
+          
+          body += `
+          
+          Consider updating these dependencies to their latest versions.
+          
+          This issue was automatically created by the Dependencies workflow.
+          `;
+          
+          const title = `Outdated dependencies detected (${outdatedData.dependencies.length} packages)`;
+          
+          // Check if similar issue already exists
+          const { data: issues } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'open',
+            labels: ['dependencies']
+          });
+          
+          const existingIssue = issues.find(issue => 
+            issue.title.includes('Outdated dependencies detected')
+          );
+          
+          if (existingIssue) {
+            // Update existing issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existingIssue.number,
+              title: title,
+              body: body
+            });
+          } else {
+            // Create new issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['dependencies', 'enhancement', 'automated']
+            });
+          }
+
+  update-cargo:
+    name: Update Cargo Dependencies
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-edit
+      run: cargo install cargo-edit
+
+    - name: Update dependencies
+      run: |
+        # Update dependencies to latest compatible versions
+        cargo update
+        
+        # Optionally upgrade to latest versions (breaking changes possible)
+        # cargo upgrade
+
+    - name: Check if Cargo.lock changed
+      id: changes
+      run: |
+        if git diff --quiet Cargo.lock; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Test updated dependencies
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        # Install system dependencies for testing
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev
+        
+        # Test that the project still builds
+        cargo check
+        cargo test
+
+    - name: Create Pull Request
+      if: steps.changes.outputs.changed == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: update Cargo dependencies"
+        title: "chore: update Cargo dependencies"
+        body: |
+          This PR updates the Cargo dependencies to their latest compatible versions.
+          
+          Changes:
+          - Updated `Cargo.lock` with latest compatible dependency versions
+          - All tests pass with the updated dependencies
+          
+          This PR was automatically created by the Dependencies workflow.
+        branch: update-cargo-dependencies
+        delete-branch: true
+
+  check-msys2:
+    name: Check MSYS2 Package Updates
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+
+    - name: Check for package updates
+      run: |
+        # Update package database
+        pacman -Sy
+        
+        # Check for outdated packages relevant to our build
+        packages=(
+          "mingw-w64-x86_64-gtk4"
+          "mingw-w64-x86_64-libadwaita"
+          "mingw-w64-x86_64-gstreamer"
+          "mingw-w64-x86_64-rust"
+        )
+        
+        echo "Checking MSYS2 package versions..."
+        for pkg in "${packages[@]}"; do
+          echo "=== $pkg ==="
+          pacman -Qi "$pkg" 2>/dev/null || echo "Package not installed"
+          echo "Available version:"
+          pacman -Si "$pkg" | grep "Version" || echo "Package not found in repos"
+          echo ""
+        done
+
+  check-flathub:
+    name: Check Flathub Runtime Updates
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install flatpak
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y flatpak
+
+    - name: Add Flathub repository
+      run: |
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    - name: Check runtime versions
+      run: |
+        echo "Checking GNOME runtime versions..."
+        
+        # Get current runtime version from manifest
+        current_runtime=$(grep '"runtime-version"' io.bassi.Amberol.json | cut -d'"' -f4)
+        echo "Current runtime version: $current_runtime"
+        
+        # Check available versions
+        echo "Available GNOME Platform versions:"
+        flatpak remote-ls flathub | grep "org.gnome.Platform" | grep -v "Locale\|Debug" | head -10
+        
+        echo ""
+        echo "Available GNOME SDK versions:"
+        flatpak remote-ls flathub | grep "org.gnome.Sdk" | grep -v "Locale\|Debug\|Docs" | head -10
