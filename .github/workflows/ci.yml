@@ -16,56 +16,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libgtk-4-dev \
-          libadwaita-1-dev \
-          libgstreamer1.0-dev \
-          libgstreamer-plugins-base1.0-dev \
-          libgstreamer-plugins-bad1.0-dev \
-          gstreamer1.0-plugins-base \
-          gstreamer1.0-plugins-good \
-          gstreamer1.0-plugins-bad \
-          gstreamer1.0-plugins-ugly \
-          gstreamer1.0-libav \
-          meson \
-          ninja-build \
-          gettext
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Configure meson
-      run: meson setup _build --buildtype=release
-
-    - name: Build
-      run: meson compile -C _build
-
-    - name: Test
-      run: meson test -C _build --verbose
-
-    - name: Create Linux package
-      run: |
-        mkdir -p dist
-        tar -czf dist/amberol-linux-x86_64.tar.gz \
-          -C _build/src amberol \
-          -C ../data amberol.gresource
-
-    - name: Upload Linux build
-      uses: actions/upload-artifact@v4
-      with:
-        name: amberol-linux
-        path: dist/
-
   build-windows:
     name: Build Windows
     runs-on: windows-latest
@@ -177,26 +127,3 @@ jobs:
       with:
         name: amberol-windows
         path: dist/
-
-  build-flatpak:
-    name: Build Flatpak
-    runs-on: ubuntu-latest
-    container:
-      image: bilelmoussaoui/flatpak-github-actions:gnome-45
-      options: --privileged
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Build Flatpak
-      uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v6
-      with:
-        bundle: amberol.flatpak
-        manifest-path: io.bassi.Amberol.json
-        cache-key: flatpak-builder-${{ github.sha }}
-
-    - name: Upload Flatpak
-      uses: actions/upload-artifact@v4
-      with:
-        name: amberol-flatpak
-        path: amberol.flatpak
