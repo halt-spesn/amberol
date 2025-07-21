@@ -58,37 +58,46 @@ mod imp {
     
     impl Application {
         fn create_settings_with_fallback() -> gio::Settings {
+            use gio::prelude::*;
+            
+            // Check if the schema exists before trying to create Settings
+            let schema_source = gio::SettingsSchemaSource::default().unwrap();
+            
             // First try the configured APPLICATION_ID
-            match std::panic::catch_unwind(|| gio::Settings::new(APPLICATION_ID)) {
-                Ok(settings) => {
-                    debug!("Successfully loaded settings with schema: {}", APPLICATION_ID);
-                    settings
-                },
-                Err(_) => {
-                    // If APPLICATION_ID is a development schema, try the release version
-                    if APPLICATION_ID.ends_with(".Devel") {
-                        let release_id = APPLICATION_ID.replace(".Devel", "");
-                        warn!("Development schema '{}' not found, trying release schema '{}'", APPLICATION_ID, release_id);
-                        
-                        match std::panic::catch_unwind(|| gio::Settings::new(&release_id)) {
-                            Ok(settings) => {
-                                info!("Successfully loaded release schema: {}", release_id);
-                                settings
-                            },
-                            Err(_) => {
-                                error!("Neither development nor release schema found");
-                                error!("Attempted schemas: '{}', '{}'", APPLICATION_ID, release_id);
-                                error!("This is likely a packaging issue - GSettings schemas not properly installed");
-                                panic!("Cannot initialize application without settings schema");
-                            }
-                        }
-                    } else {
-                        error!("Settings schema '{}' not found", APPLICATION_ID);
-                        error!("This is likely a packaging issue - GSettings schemas not properly installed");
-                        panic!("Cannot initialize application without settings schema");
+            if let Some(_schema) = schema_source.lookup(APPLICATION_ID, true) {
+                debug!("Successfully found settings schema: {}", APPLICATION_ID);
+                return gio::Settings::new(APPLICATION_ID);
+            }
+            
+            warn!("Schema '{}' not found", APPLICATION_ID);
+            
+            // If APPLICATION_ID is a development schema, try the release version
+            if APPLICATION_ID.ends_with(".Devel") {
+                let release_id = APPLICATION_ID.replace(".Devel", "");
+                warn!("Trying release schema '{}'", release_id);
+                
+                if let Some(_schema) = schema_source.lookup(&release_id, true) {
+                    info!("Successfully found release schema: {}", release_id);
+                    return gio::Settings::new(&release_id);
+                } else {
+                    error!("Release schema '{}' also not found", release_id);
+                }
+            }
+            
+            // List available schemas for debugging
+            error!("Available schemas:");
+            if let Some(non_relocatable) = schema_source.list_schemas(true, false) {
+                for schema in non_relocatable {
+                    if schema.contains("Amberol") || schema.contains("bassi") {
+                        error!("  - {}", schema);
                     }
                 }
             }
+            
+            error!("Cannot initialize application - no compatible settings schema found");
+            error!("This is likely a packaging issue - GSettings schemas not properly installed");
+            error!("Expected schema: {} or fallback: {}", APPLICATION_ID, APPLICATION_ID.replace(".Devel", ""));
+            panic!("Cannot initialize application without settings schema");
         }
     }
 

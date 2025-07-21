@@ -361,7 +361,26 @@ jobs:
           }
           
           Write-Host "✅ Found and copied $pluginDepsFound additional plugin dependencies" -ForegroundColor Magenta
-        }
+        
+        # Test schema installation
+        Write-Host "🧪 Testing schema installation..." -ForegroundColor Blue
+        $testSchemas = @("io.bassi.Amberol", "io.bassi.Amberol.Devel")
+        foreach ($testSchema in $testSchemas) {
+          $env:GSETTINGS_SCHEMA_DIR = "$shareDir\glib-2.0\schemas"
+          $gsettings = Join-Path $msys2BinPath "gsettings.exe"
+          if (Test-Path $gsettings) {
+            try {
+              $result = & $gsettings list-schemas | Select-String $testSchema
+              if ($result) {
+                Write-Host "  ✅ Schema $testSchema is available" -ForegroundColor Green
+              } else {
+                Write-Host "  ❌ Schema $testSchema not found" -ForegroundColor Red
+              }
+                         } catch {
+               Write-Host "  ⚠️ Could not test schema $testSchema" -ForegroundColor Yellow
+             }
+           }
+         }
         
         # Copy ALL GStreamer plugins
         Write-Host "📦 Copying all GStreamer plugins..." -ForegroundColor Blue
@@ -437,12 +456,24 @@ jobs:
             Write-Host "  ✅ Created io.bassi.Amberol.gschema.xml" -ForegroundColor Green
           }
           
+          # Show what schemas we have before compiling
+          Write-Host "📋 Schema files before compilation:" -ForegroundColor Gray
+          Get-ChildItem $schemasDir -Filter "*.xml" | ForEach-Object { 
+            Write-Host "  - $($_.Name)" -ForegroundColor Gray 
+          }
+          
           # Compile schemas using glib-compile-schemas
           $glibCompile = Join-Path $msys2BinPath "glib-compile-schemas.exe"
           if (Test-Path $glibCompile) {
             Write-Host "🔧 Compiling GSettings schemas..." -ForegroundColor Blue
-            & $glibCompile $schemasDir
-            Write-Host "✅ Schemas compiled successfully" -ForegroundColor Green
+            & $glibCompile $schemasDir 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+            
+            if (Test-Path "$schemasDir\gschemas.compiled") {
+              Write-Host "✅ Schemas compiled successfully" -ForegroundColor Green
+              Write-Host "📋 Compiled schema file size: $((Get-Item "$schemasDir\gschemas.compiled").Length) bytes" -ForegroundColor Gray
+            } else {
+              Write-Host "❌ Schema compilation failed - gschemas.compiled not found" -ForegroundColor Red
+            }
           } else {
             Write-Host "⚠️ glib-compile-schemas not found, schemas may not work" -ForegroundColor Yellow
           }
