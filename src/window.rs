@@ -17,6 +17,7 @@ use crate::{
     config::APPLICATION_ID,
     drag_overlay::DragOverlay,
     i18n::{i18n, i18n_k, ni18n_f, ni18n_k},
+    icon_renderer::IconRenderer,
     playback_control::PlaybackControl,
     playlist_view::PlaylistView,
     queue_row::QueueRow,
@@ -1164,11 +1165,14 @@ impl Window {
         if let Some(player) = self.player() {
             let state = player.state();
             let play_button = self.imp().playback_control.play_button();
-            if state.playing() {
-                play_button.set_icon_name("media-playback-pause-symbolic");
+            let icon_name = if state.playing() {
+                "media-playback-pause-symbolic"
             } else {
-                play_button.set_icon_name("media-playback-start-symbolic");
-            }
+                "media-playback-start-symbolic"
+            };
+            
+            // Try programmatic fallback for play/pause icons
+            IconRenderer::set_button_icon_with_fallback(&play_button, icon_name);
         }
     }
 

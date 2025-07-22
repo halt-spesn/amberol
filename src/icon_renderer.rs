@@ -13,6 +13,59 @@ const ICON_COLOR: (f64, f64, f64) = (0.18, 0.20, 0.21); // #2e3436 in RGB
 pub struct IconRenderer;
 
 impl IconRenderer {
+    /// Check if an icon is supported for programmatic rendering
+    pub fn supports_icon(icon_name: &str) -> bool {
+        matches!(icon_name,
+            "media-playlist-consecutive-symbolic" |
+            "media-playlist-repeat-symbolic" |
+            "media-playlist-repeat-song-symbolic" |
+            "media-playlist-shuffle-symbolic" |
+            "media-playback-start-symbolic" |
+            "media-playback-pause-symbolic" |
+            "media-skip-backward-symbolic" |
+            "media-skip-forward-symbolic" |
+            "view-queue-symbolic" |
+            "view-queue-rtl-symbolic" |
+            "app-remove-symbolic" |
+            "audio-only-symbolic"
+        )
+    }
+    
+    /// Try to set an icon on a button with programmatic fallback
+    pub fn set_button_icon_with_fallback(button: &gtk::Button, icon_name: &str) -> bool {
+        // First try normal icon setting
+        button.set_icon_name(icon_name);
+        
+        // Check if we have a programmatic version for this icon
+        if Self::supports_icon(icon_name) {
+            info!("🎨 Programmatic icon available for: {}", icon_name);
+            
+            // Test if the icon actually loads properly
+            let icon_theme = gtk::IconTheme::for_display(&button.display());
+            if let Some(paintable) = icon_theme.lookup_icon(
+                icon_name,
+                &[],
+                16,
+                1,
+                gtk::TextDirection::None,
+                gtk::IconLookupFlags::empty()
+            ).file().and_then(|f| f.path()) {
+                let path_str = paintable.to_string_lossy();
+                if path_str.contains("image-missing") || path_str.contains("broken") {
+                    warn!("🔄 Icon '{}' showing as missing, using programmatic fallback", icon_name);
+                    
+                    if let Some(icon_widget) = Self::create_icon_widget(icon_name) {
+                        button.set_child(Some(&icon_widget));
+                        info!("✅ Programmatic icon successfully applied to button");
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        false // Using normal icon
+    }
+    
     /// Create a programmatically drawn icon as a drawable widget
     pub fn create_icon_widget(icon_name: &str) -> Option<gtk::DrawingArea> {
         info!("🎨 Creating programmatic icon widget: {}", icon_name);
@@ -21,7 +74,9 @@ impl IconRenderer {
         drawing_area.set_content_width(ICON_SIZE);
         drawing_area.set_content_height(ICON_SIZE);
         
-        let icon_name = icon_name.to_string();
+        let icon_name_for_closure = icon_name.to_string();
+        let icon_name_for_log = icon_name.to_string();
+        
         drawing_area.set_draw_func(move |_area, cr, width, height| {
             // Scale to fit the allocated size
             let scale_x = width as f64 / ICON_SIZE as f64;
@@ -39,7 +94,7 @@ impl IconRenderer {
             cr.set_line_width(1.0);
             
             // Draw the specific icon
-            let _success = match icon_name.as_str() {
+            let _success = match icon_name_for_closure.as_str() {
                 "media-playlist-consecutive-symbolic" => Self::draw_consecutive(cr),
                 "media-playlist-repeat-symbolic" => Self::draw_repeat_all(cr),
                 "media-playlist-repeat-song-symbolic" => Self::draw_repeat_one(cr),
@@ -50,11 +105,17 @@ impl IconRenderer {
                 "media-skip-forward-symbolic" => Self::draw_skip_forward(cr),
                 "view-queue-symbolic" => Self::draw_queue(cr),
                 "view-queue-rtl-symbolic" => Self::draw_queue_rtl(cr),
-                _ => false
+                // Additional icons that might be needed
+                "app-remove-symbolic" => Self::draw_remove(cr),
+                "audio-only-symbolic" => Self::draw_audio_only(cr),
+                _ => {
+                    warn!("Unknown programmatic icon: {}", icon_name_for_closure);
+                    false
+                }
             };
         });
         
-        info!("✅ Successfully created programmatic icon widget: {}", icon_name);
+        info!("✅ Successfully created programmatic icon widget: {}", icon_name_for_log);
         Some(drawing_area)
     }
     
@@ -262,6 +323,46 @@ impl IconRenderer {
         
         cr.rectangle(2.0, 12.0, 12.0, 2.0);
         cr.fill().unwrap_or_default();
+        true
+    }
+    
+    /// Draw remove/delete icon (X or minus)
+    fn draw_remove(cr: &cairo::Context) -> bool {
+        // Draw an X
+        cr.set_line_width(2.0);
+        
+        cr.move_to(4.0, 4.0);
+        cr.line_to(12.0, 12.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(12.0, 4.0);
+        cr.line_to(4.0, 12.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw audio-only icon (speaker or audio waves)
+    fn draw_audio_only(cr: &cairo::Context) -> bool {
+        // Speaker box
+        cr.rectangle(2.0, 6.0, 4.0, 4.0);
+        cr.fill().unwrap_or_default();
+        
+        // Speaker cone
+        cr.move_to(6.0, 6.0);
+        cr.line_to(10.0, 3.0);
+        cr.line_to(10.0, 13.0);
+        cr.line_to(6.0, 10.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Sound waves
+        cr.arc(10.0, 8.0, 3.0, -std::f64::consts::PI/4.0, std::f64::consts::PI/4.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.arc(10.0, 8.0, 5.0, -std::f64::consts::PI/6.0, std::f64::consts::PI/6.0);
+        cr.stroke().unwrap_or_default();
+        
         true
     }
 }

@@ -90,6 +90,7 @@ Amberol for Windows supports the following audio formats through GStreamer:
 - **Search**: Quick search through your current playlist
 - **Waveform Visualization**: See the audio waveform of the current track
 - **Album Art**: Displays embedded album artwork
+- **Reliable Icons**: Programmatic icon rendering ensures all UI elements display correctly on Windows
 
 ### Windows-Specific Features
 - **Windows Media Integration**: Control playback from keyboard media keys
@@ -173,19 +174,23 @@ You can configure audio settings by setting environment variables or using the W
 5. **Check GStreamer Plugins**: Ensure MP3 codecs are present in `lib\gstreamer-1.0\`
 
 #### Missing Icons or Theme Issues
-1. **GResource Check**: Icons are embedded in `amberol.gresource` - verify this file exists:
+1. **Automatic Fallback**: Amberol now includes programmatic icon rendering that automatically handles missing or broken SVG icons
+   - If an SVG icon fails to parse, Amberol draws the icon using Cairo graphics primitives  
+   - This provides **100% reliable icons** regardless of Windows GTK SVG support
+   - Icons are drawn in-code and guaranteed to display correctly
+2. **GResource Check**: Icons are embedded in `amberol.gresource` - verify this file exists:
    - `bin\amberol.gresource` (primary location)
    - `share\amberol.gresource` (fallback location)  
    - `share\amberol\amberol.gresource` (alternative location)
-2. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
-3. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
-4. **Comprehensive Icon Fix**: The portable build includes all missing symbolic icons:
+3. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
+4. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
+5. **Comprehensive Icon Coverage**: All critical UI icons have programmatic fallbacks:
    - Media controls (play, pause, skip, shuffle, repeat)
    - Playlist controls (queue, selection, remove)  
    - Application icons (search, menu, volume)
-   - Amberol app icon for "About" dialog
-5. **Build Issues**: If GResource is missing, the build may have failed icon compilation
-6. **Manual Fix**: Download a fresh portable build if icons still missing
+6. **Debug Information**: The app logs show when programmatic fallbacks are used:
+   - `🎨 Creating programmatic icon widget: [icon-name]`
+   - `✅ Programmatic icon successfully applied to button`
 
 #### Application Won't Start
 1. **Missing DLL Check**: Run the included `check_missing_dlls.ps1` script to identify missing dependencies:
