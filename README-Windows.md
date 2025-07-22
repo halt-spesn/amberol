@@ -156,17 +156,18 @@ You can configure audio settings by setting environment variables or using the W
 4. Restart the application
 
 #### MP3 Files Not Loading ("invalid frame" errors)
-1. **File Quality**: Many MP3 files with "invalid frame" errors are corrupted or use non-standard encoding
-2. **Try Different Files**: Test with different MP3 files to isolate the issue
-3. **Re-encode**: Use tools like FFmpeg to re-encode problematic MP3 files:
+1. **Metadata Issues**: Files with "invalid frame" errors have corrupted ID3 tags/metadata, but should still appear in the playlist
+2. **Songs Still Playable**: Files with metadata errors will show filename as title but should still play
+3. **Clean Metadata**: Use tools like Mp3tag or FFmpeg to fix/rebuild metadata:
    ```
-   ffmpeg -i problematic.mp3 -c:a mp3 -b:a 192k fixed.mp3
+   ffmpeg -i problematic.mp3 -c copy -map_metadata -1 fixed.mp3
    ```
-4. **Check GStreamer Plugins**: Ensure MP3 codecs are present in `lib\gstreamer-1.0\`
+4. **Enable Debug**: Uncomment `GST_DEBUG=3` in `amberol.bat` to see detailed GStreamer logs
+5. **Check GStreamer Plugins**: Ensure MP3 codecs are present in `lib\gstreamer-1.0\`
 
 #### Missing Icons or Theme Issues
 1. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
-2. **Environment Variables**: The launcher sets `GTK_THEME=Adwaita` and `ICON_THEME=Adwaita`
+2. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
 3. **Fresh Download**: Download a fresh portable build if theme resources are missing
 
 #### Application Won't Start

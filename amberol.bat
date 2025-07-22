@@ -19,9 +19,9 @@ REM Set up GLib/GSettings environment
 set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
 set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
 
-REM Set up theme and icon environment
-set GTK_THEME=Adwaita
-set ICON_THEME=Adwaita
+REM Set up icon environment (keep original Amberol theme)
+REM set GTK_THEME=Adwaita
+REM set ICON_THEME=Adwaita
 
 REM Add required DLLs to PATH
 set PATH=%AMBEROL_DIR%bin;%PATH%
@@ -29,6 +29,10 @@ set PATH=%AMBEROL_DIR%bin;%PATH%
 REM Set GTK/GStreamer preferences for Windows
 set GSK_RENDERER=gl
 set GTK_USE_PORTAL=0
+
+REM Enable GStreamer debugging (uncomment for troubleshooting)
+REM set GST_DEBUG=3
+REM set GST_DEBUG_FILE=%AMBEROL_DIR%gstreamer-debug.log
 
 REM Set application data directory
 if not defined LOCALAPPDATA (

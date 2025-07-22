@@ -153,11 +153,13 @@ jobs:
           # SSL/Network (if needed)
           "libssl-3-x64.dll", "libcrypto-3-x64.dll",
           
-          # Audio formats and codecs
+          # Audio formats and codecs - comprehensive MP3 support
           "libvorbis-0.dll", "libvorbisenc-2.dll", "libvorbisfile-3.dll",
           "libogg-0.dll", "libopus-0.dll", "libopusfile-0.dll",
-          "libFLAC-8.dll", "libsndfile-1.dll", "libmpg123-0.dll",
-          "libmad-0.dll", "libid3tag-0.dll", "liblame-0.dll",
+          "libFLAC-8.dll", "libsndfile-1.dll", 
+          # MP3 codec libraries
+          "libmpg123-0.dll", "libmad-0.dll", "libid3tag-0.dll", "liblame-0.dll",
+          "libmp3lame-0.dll", "libmp3lame.dll",
           
           # System libraries
           "libffi-7.dll", "libffi-8.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
@@ -589,9 +591,9 @@ jobs:
         set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
         set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
         
-        REM Set up theme and icon environment
-        set GTK_THEME=Adwaita
-        set ICON_THEME=Adwaita
+        REM Set up icon environment (keep original Amberol theme)
+        REM set GTK_THEME=Adwaita
+        REM set ICON_THEME=Adwaita
         
         REM Add DLL directory to PATH
         set PATH=%AMBEROL_DIR%bin;%PATH%

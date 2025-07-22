@@ -88,10 +88,14 @@ impl SongData {
         let path = file.path().expect("Unable to find file");
 
         let tagged_file = match lofty::read_from_path(&path) {
-            Ok(f) => f,
+            Ok(f) => {
+                debug!("Successfully read metadata from: {:?}", path);
+                Some(f)
+            },
             Err(e) => {
-                warn!("Unable to open file {:?}: {}", path, e);
-                return SongData::default();
+                warn!("Unable to read metadata from file {:?}: {} - will create basic entry", path, e);
+                // Still try to create a basic song entry without metadata
+                None
             }
         };
 
@@ -102,18 +106,20 @@ impl SongData {
         let mut album = None;
         let mut cover_art = None;
         let mut cover_uuid = None;
-        if let Some(tag) = tagged_file.primary_tag() {
+        
+        if let Some(ref tagged_file) = tagged_file {
+            if let Some(tag) = tagged_file.primary_tag() {
             debug!("Found primary tag");
             artist = tag.artist().map(|s| s.to_string());
             title = tag.title().map(|s| s.to_string());
             album = tag.album().map(|s| s.to_string());
-            if let Some(res) = cover_cache.cover_art(&path, tag) {
-                cover_art = Some(res.0);
-                cover_uuid = Some(res.1);
-            }
-        } else {
-            warn!("Unable to load primary tag for: {}", uri);
-            for tag in tagged_file.tags() {
+                if let Some(res) = cover_cache.cover_art(&path, tag) {
+                    cover_art = Some(res.0);
+                    cover_uuid = Some(res.1);
+                }
+            } else {
+                warn!("Unable to load primary tag for: {}", uri);
+                for tag in tagged_file.tags() {
                 debug!("Found tag: {:?}", tag.tag_type());
                 artist = tag.artist().map(|s| s.to_string());
                 title = tag.title().map(|s| s.to_string());
@@ -123,11 +129,27 @@ impl SongData {
                     cover_uuid = Some(res.1);
                 }
 
-                if artist.is_some() && title.is_some() {
-                    break;
+                    if artist.is_some() && title.is_some() {
+                        break;
+                    }
                 }
             }
-        };
+        }
+        
+        // If we couldn't parse metadata, try to extract basic info from filename
+        if tagged_file.is_none() {
+            warn!("No metadata available, using filename for basic info");
+            if let Some(filename) = path.file_stem().and_then(|s| s.to_str()) {
+                // Try to extract artist - title from filename patterns like "Artist - Title.mp3"
+                if let Some(dash_pos) = filename.find(" - ") {
+                    artist = Some(filename[..dash_pos].to_string());
+                    title = Some(filename[dash_pos + 3..].to_string());
+                } else {
+                    // Just use the filename as title
+                    title = Some(filename.to_string());
+                }
+            }
+        }
 
         let uuid = match file.query_info(
             "standard::display-name",
