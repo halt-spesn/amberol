@@ -84,9 +84,11 @@ if exist "%AMBEROL_DIR%share\amberol.gresource" (echo   ✓ Found GResource in s
 if exist "%AMBEROL_DIR%share\amberol\amberol.gresource" (echo   ✓ Found GResource in share/amberol/) else (echo   ✗ WARNING: GResource missing in share/amberol/)
 echo.
 
-REM Try icon workarounds if needed (uncomment one at a time if icons don't show)
+REM Icon rendering fixes (uncomment if icons appear as missing/broken)
+REM Windows GTK sometimes has SVG rendering issues - try these:
 REM set GSK_RENDERER=cairo
 REM set GTK_THEME=Default
+REM set GDK_SCALE=1
 
 REM Launch Amberol
 echo Starting Amberol...
