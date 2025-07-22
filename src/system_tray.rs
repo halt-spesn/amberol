@@ -7,6 +7,7 @@ pub mod windows_tray {
     use log::{info, warn, error};
     use std::cell::RefCell;
     use std::rc::Rc;
+    use crate::icon_renderer::IconRenderer;
     use windows::Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM, HINSTANCE},
         Graphics::Gdi::HBRUSH,

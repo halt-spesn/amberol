@@ -696,6 +696,7 @@ jobs:
         Copy-Item "check_missing_dlls.ps1" $distDir -Force
         Copy-Item "debug_icons.ps1" $distDir -Force
         Copy-Item "debug_icons_enhanced.ps1" $distDir -Force
+        Copy-Item "test_programmatic_icons.ps1" $distDir -Force
         
         # Create enhanced launcher that sets up complete environment
         Write-Host "📝 Creating launcher script..." -ForegroundColor Blue

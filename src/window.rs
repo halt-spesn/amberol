@@ -979,7 +979,8 @@ impl Window {
             // Manually update the icon on the initial empty state
             // to avoid generating the UI definition file at build
             // time
-            self.imp().status_page.set_icon_name(Some(APPLICATION_ID));
+            // Try programmatic fallback for app icon
+        IconRenderer::set_status_page_icon_with_fallback(&self.imp().status_page, APPLICATION_ID);
 
             if utils::has_cached_playlist() {
                 self.imp().restore_playlist_button.set_visible(true);
