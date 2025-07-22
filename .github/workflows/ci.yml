@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-name: Build
+name: Buildd
 
 on:
   push:
