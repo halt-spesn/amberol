@@ -10,8 +10,18 @@ setlocal
 REM Get the directory where this batch file is located
 set AMBEROL_DIR=%~dp0
 
-REM Set GStreamer plugin path
+REM Set up GStreamer environment
 set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin
+
+REM Set up GLib/GSettings environment
+set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
+set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
+
+REM Set up theme and icon environment
+set GTK_THEME=Adwaita
+set ICON_THEME=Adwaita
 
 REM Add required DLLs to PATH
 set PATH=%AMBEROL_DIR%bin;%PATH%
@@ -30,6 +40,14 @@ if not exist "%LOCALAPPDATA%\io.bassi.Amberol" (
     mkdir "%LOCALAPPDATA%\io.bassi.Amberol"
 )
 
+REM Show environment info for debugging
+echo Amberol Portable Launcher
+echo ========================
+echo Application Directory: %AMBEROL_DIR%
+echo GStreamer Plugins: %GST_PLUGIN_PATH%
+echo GSettings Schemas: %GSETTINGS_SCHEMA_DIR%
+echo.
+
 REM Launch Amberol
 echo Starting Amberol...
 "%AMBEROL_DIR%bin\amberol.exe" %*
@@ -44,6 +62,8 @@ if %ERRORLEVEL% neq 0 (
     echo 2. Check if Microsoft Visual C++ Redistributable is installed
     echo 3. Verify audio drivers are working
     echo 4. Try running as Administrator
+    echo 5. Check if GStreamer plugins are present in: %GST_PLUGIN_PATH%
+    echo 6. Check if GSettings schemas are compiled in: %GSETTINGS_SCHEMA_DIR%
     echo.
     pause
 )

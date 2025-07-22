@@ -155,6 +155,20 @@ You can configure audio settings by setting environment variables or using the W
 3. Try different audio formats
 4. Restart the application
 
+#### MP3 Files Not Loading ("invalid frame" errors)
+1. **File Quality**: Many MP3 files with "invalid frame" errors are corrupted or use non-standard encoding
+2. **Try Different Files**: Test with different MP3 files to isolate the issue
+3. **Re-encode**: Use tools like FFmpeg to re-encode problematic MP3 files:
+   ```
+   ffmpeg -i problematic.mp3 -c:a mp3 -b:a 192k fixed.mp3
+   ```
+4. **Check GStreamer Plugins**: Ensure MP3 codecs are present in `lib\gstreamer-1.0\`
+
+#### Missing Icons or Theme Issues
+1. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
+2. **Environment Variables**: The launcher sets `GTK_THEME=Adwaita` and `ICON_THEME=Adwaita`
+3. **Fresh Download**: Download a fresh portable build if theme resources are missing
+
 #### Application Won't Start
 1. **Missing DLL Check**: Run the included `check_missing_dlls.ps1` script to identify missing dependencies:
    ```powershell

@@ -157,6 +157,7 @@ jobs:
           "libvorbis-0.dll", "libvorbisenc-2.dll", "libvorbisfile-3.dll",
           "libogg-0.dll", "libopus-0.dll", "libopusfile-0.dll",
           "libFLAC-8.dll", "libsndfile-1.dll", "libmpg123-0.dll",
+          "libmad-0.dll", "libid3tag-0.dll", "liblame-0.dll",
           
           # System libraries
           "libffi-7.dll", "libffi-8.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
@@ -393,6 +394,18 @@ jobs:
           Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
           $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
           Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
+          
+          # List key audio plugins for debugging MP3 issues
+          Write-Host "🔍 Checking for key audio plugins:" -ForegroundColor Gray
+          $keyPlugins = @("libgstmpg123.dll", "libgstlame.dll", "libgstmad.dll", "libgstid3tag.dll", "libgstaudioparsers.dll", "libgsttypefindfunctions.dll", "libgstaudioconvert.dll", "libgstmpeg2dec.dll", "libgstmpegaudioparse.dll")
+          foreach ($plugin in $keyPlugins) {
+            $pluginPath = Join-Path "$libDir\gstreamer-1.0" $plugin
+            if (Test-Path $pluginPath) {
+              Write-Host "  ✅ $plugin" -ForegroundColor Green
+            } else {
+              Write-Host "  ❌ $plugin (missing)" -ForegroundColor Red
+            }
+          }
         } else {
           Write-Host "⚠️ GStreamer plugin directory not found at ${gstPluginDir}" -ForegroundColor Yellow
           
@@ -407,6 +420,18 @@ jobs:
               Copy-Item $altPath "$libDir\gstreamer-1.0" -Recurse -Force
               $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
               Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
+              
+              # List key audio plugins for debugging MP3 issues
+              Write-Host "🔍 Checking for key audio plugins:" -ForegroundColor Gray
+              $keyPlugins = @("libgstmpg123.dll", "libgstlame.dll", "libgstmad.dll", "libgstid3tag.dll", "libgstaudioparsers.dll", "libgsttypefindfunctions.dll", "libgstaudioconvert.dll", "libgstmpeg2dec.dll", "libgstmpegaudioparse.dll")
+              foreach ($plugin in $keyPlugins) {
+                $pluginPath = Join-Path "$libDir\gstreamer-1.0" $plugin
+                if (Test-Path $pluginPath) {
+                  Write-Host "  ✅ $plugin" -ForegroundColor Green
+                } else {
+                  Write-Host "  ❌ $plugin (missing)" -ForegroundColor Red
+                }
+              }
               break
             }
           }
@@ -422,6 +447,31 @@ jobs:
           Write-Host "✅ Copied GLib schemas" -ForegroundColor Green
         } else {
           Write-Host "⚠️ GLib schemas not found at ${glibSchemas}" -ForegroundColor Yellow
+        }
+        
+        # Copy libadwaita theme resources  
+        Write-Host "🎨 Copying libadwaita theme resources..." -ForegroundColor Blue
+        $adwaitaThemes = Join-Path $msys2SharePath "libadwaita-1"
+        if (Test-Path $adwaitaThemes) {
+          Copy-Item $adwaitaThemes "$shareDir" -Recurse -Force
+          Write-Host "✅ Libadwaita themes copied" -ForegroundColor Green
+        } else {
+          Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
+        }
+        
+        # Copy icons
+        Write-Host "🖼️ Copying icon themes..." -ForegroundColor Blue
+        $iconDirs = @("Adwaita", "hicolor")
+        foreach ($iconName in $iconDirs) {
+          $iconDir = Join-Path $msys2SharePath "icons\${iconName}"
+          if (Test-Path $iconDir) {
+            $targetIconDir = "$shareDir\icons\${iconName}"
+            New-Item -ItemType Directory -Path "$shareDir\icons" -Force | Out-Null
+            Copy-Item $iconDir $targetIconDir -Recurse -Force
+            Write-Host "  ✅ ${iconName} icons copied" -ForegroundColor Green
+          } else {
+            Write-Host "  ⚠️ ${iconName} icons not found at ${iconDir}" -ForegroundColor Yellow
+          }
         }
         
         # Copy application-specific GSettings schema
@@ -538,6 +588,10 @@ jobs:
         REM Set up GLib environment
         set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
         set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
+        
+        REM Set up theme and icon environment
+        set GTK_THEME=Adwaita
+        set ICON_THEME=Adwaita
         
         REM Add DLL directory to PATH
         set PATH=%AMBEROL_DIR%bin;%PATH%
