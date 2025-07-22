@@ -44,6 +44,20 @@ if not exist "%LOCALAPPDATA%\io.bassi.Amberol" (
     mkdir "%LOCALAPPDATA%\io.bassi.Amberol"
 )
 
+REM Create missing devel-symbolic.svg if libadwaita themes are present but icon is missing
+if exist "%AMBEROL_DIR%share\libadwaita-1\styles" (
+    if not exist "%AMBEROL_DIR%share\libadwaita-1\styles\assets" (
+        mkdir "%AMBEROL_DIR%share\libadwaita-1\styles\assets"
+    )
+    if not exist "%AMBEROL_DIR%share\libadwaita-1\styles\assets\devel-symbolic.svg" (
+        echo Creating missing devel-symbolic.svg...
+        echo ^<?xml version="1.0" encoding="UTF-8"?^> > "%AMBEROL_DIR%share\libadwaita-1\styles\assets\devel-symbolic.svg"
+        echo ^<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"^> >> "%AMBEROL_DIR%share\libadwaita-1\styles\assets\devel-symbolic.svg"
+        echo   ^<circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/^> >> "%AMBEROL_DIR%share\libadwaita-1\styles\assets\devel-symbolic.svg"
+        echo ^</svg^> >> "%AMBEROL_DIR%share\libadwaita-1\styles\assets\devel-symbolic.svg"
+    )
+)
+
 REM Show environment info for debugging
 echo Amberol Portable Launcher
 echo ========================

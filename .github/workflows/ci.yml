@@ -457,11 +457,41 @@ jobs:
         if (Test-Path $adwaitaThemes) {
           Copy-Item $adwaitaThemes "$shareDir" -Recurse -Force
           Write-Host "✅ Libadwaita themes copied" -ForegroundColor Green
+          
+          # Create missing devel-symbolic.svg if needed
+          $stylesDir = "$shareDir\libadwaita-1\styles"
+          $assetsDir = "$stylesDir\assets"
+          if (Test-Path $stylesDir) {
+            if (-not (Test-Path $assetsDir)) {
+              New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+            }
+            
+            $develIcon = "$assetsDir\devel-symbolic.svg"
+            if (-not (Test-Path $develIcon)) {
+              # Create a proper Adwaita-style devel-symbolic icon
+              $svg = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <style type="text/css">
+      .adwaita-icon-symbolic { fill: currentColor; }
+    </style>
+  </defs>
+  <g class="adwaita-icon-symbolic">
+    <path d="M8 1C4.134 1 1 4.134 1 8s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 1.5A5.5 5.5 0 0 1 13.5 8 5.5 5.5 0 0 1 8 13.5 5.5 5.5 0 0 1 2.5 8 5.5 5.5 0 0 1 8 2.5zM6 5v2h1V5.5h2V7h1V5zm0 4v2h4v-2z" style="fill:currentColor;fill-opacity:0.5"/>
+    <circle cx="8" cy="8" r="1.5" style="fill:currentColor"/>
+  </g>
+</svg>
+"@
+              Set-Content -Path $develIcon -Value $svg -Encoding UTF8
+              Write-Host "  ✅ Created missing devel-symbolic.svg" -ForegroundColor Cyan
+            }
+          }
         } else {
           Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
         }
         
-        # Copy icons
+        # Copy icons and additional icon resources
         Write-Host "🖼️ Copying icon themes..." -ForegroundColor Blue
         $iconDirs = @("Adwaita", "hicolor")
         foreach ($iconName in $iconDirs) {
@@ -474,6 +504,13 @@ jobs:
           } else {
             Write-Host "  ⚠️ ${iconName} icons not found at ${iconDir}" -ForegroundColor Yellow
           }
+        }
+        
+        # Copy GTK icon cache and index files
+        $gtkSharePath = Join-Path $msys2SharePath "gtk-4.0"
+        if (Test-Path $gtkSharePath) {
+          Copy-Item $gtkSharePath "$shareDir" -Recurse -Force
+          Write-Host "  ✅ GTK-4.0 resources copied" -ForegroundColor Green
         }
         
         # Copy application-specific GSettings schema
