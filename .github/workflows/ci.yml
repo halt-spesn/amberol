@@ -600,34 +600,87 @@ jobs:
         # Copy application resources to multiple locations for portability
         Write-Host "📦 Copying application resources..." -ForegroundColor Blue
         
-        # Find the GResource file
+        # Find and copy the GResource file with enhanced debugging
+        Write-Host "🔍 Searching for GResource files..." -ForegroundColor Blue
+        Write-Host "  📁 Current directory: $(Get-Location)" -ForegroundColor Gray
+        Write-Host "  📁 Build directory contents:" -ForegroundColor Gray
+        Get-ChildItem "_build" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*gresource*" -or $_.Name -like "*amberol*" } | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkGray }
+        
         $gresourceFiles = Get-ChildItem "_build" -Recurse -Filter "*.gresource" -ErrorAction SilentlyContinue
         
         if ($gresourceFiles.Count -gt 0) {
           foreach ($gresourceFile in $gresourceFiles) {
-            # Copy to share directory (standard location)
+            Write-Host "  🎯 Found GResource: $($gresourceFile.FullName)" -ForegroundColor Blue
+            Write-Host "    File size: $([math]::Round($gresourceFile.Length / 1KB, 2)) KB" -ForegroundColor Gray
+            
+            # Copy to multiple locations for maximum compatibility
             Copy-Item $gresourceFile.FullName $shareDir -Force
+            Write-Host "    ✅ Copied to: $shareDir" -ForegroundColor Green
+            Copy-Item $gresourceFile.FullName $binDir -Force  
+            Write-Host "    ✅ Copied to: $binDir" -ForegroundColor Green
             
-            # Copy to bin directory (for direct executable access)
-            Copy-Item $gresourceFile.FullName $binDir -Force
+            # Also copy to share/amberol/ subdirectory
+            $shareAmberolDir = "$shareDir\amberol"
+            New-Item -ItemType Directory -Path $shareAmberolDir -Force | Out-Null
+            Copy-Item $gresourceFile.FullName $shareAmberolDir -Force
+            Write-Host "    ✅ Copied to: $shareAmberolDir" -ForegroundColor Green
             
-            Write-Host "  ✅ $($gresourceFile.Name) copied to both bin/ and share/" -ForegroundColor Green
+            # Verify GResource contents
+            Write-Host "    🔍 Verifying GResource contents..." -ForegroundColor Gray
+            $gresourceList = Join-Path $msys2BinPath "gresource.exe"
+            if (Test-Path $gresourceList) {
+              try {
+                $resourceContents = & $gresourceList list $gresourceFile.FullName 2>$null
+                $iconCount = ($resourceContents | Where-Object { $_ -like "*icon*" -or $_ -like "*svg*" }).Count
+                Write-Host "    📊 GResource contains $iconCount icon resources" -ForegroundColor Cyan
+                if ($iconCount -gt 0) {
+                  Write-Host "    ✅ Icons are embedded in GResource" -ForegroundColor Green
+                } else {
+                  Write-Host "    ⚠️ No icons found in GResource!" -ForegroundColor Yellow
+                }
+              } catch {
+                Write-Host "    ⚠️ Could not verify GResource contents" -ForegroundColor Yellow
+              }
+            }
+            
+            Write-Host "  🎉 GResource successfully copied to all locations" -ForegroundColor Cyan
           }
         } else {
-          Write-Host "  ⚠️ No .gresource files found in _build" -ForegroundColor Yellow
+          Write-Host "  ⚠️ No .gresource files found in _build, trying alternative locations..." -ForegroundColor Yellow
           
-          # Try alternative locations
-          $altPaths = @("_build\data", "_build\src", "data")
-          foreach ($altPath in $altPaths) {
-            if (Test-Path $altPath) {
-              $altGresource = Get-ChildItem $altPath -Filter "*.gresource" -ErrorAction SilentlyContinue
+          # Enhanced search in alternative locations
+          $searchPaths = @(
+            "_build\src",
+            "_build\data", 
+            "src",
+            "data",
+            "_build\subprojects",
+            "."
+          )
+          
+          $found = $false
+          foreach ($searchPath in $searchPaths) {
+            Write-Host "    🔍 Searching in: $searchPath" -ForegroundColor Gray
+            if (Test-Path $searchPath) {
+              $altGresource = Get-ChildItem $searchPath -Filter "*.gresource" -Recurse -ErrorAction SilentlyContinue
               if ($altGresource) {
+                Write-Host "  🎯 Found GResource: $($altGresource.FullName)" -ForegroundColor Blue
                 Copy-Item $altGresource.FullName $shareDir -Force
                 Copy-Item $altGresource.FullName $binDir -Force
-                Write-Host "  ✅ Found and copied $($altGresource.Name) from $altPath" -ForegroundColor Green
+                $shareAmberolDir = "$shareDir\amberol"
+                New-Item -ItemType Directory -Path $shareAmberolDir -Force | Out-Null
+                Copy-Item $altGresource.FullName $shareAmberolDir -Force
+                Write-Host "  ✅ GResource copied from $searchPath to all locations" -ForegroundColor Green
+                $found = $true
                 break
               }
             }
+          }
+          
+          if (-not $found) {
+            Write-Host "  ❌ No GResource files found anywhere!" -ForegroundColor Red
+            Write-Host "  🔍 Full directory structure of _build:" -ForegroundColor Yellow
+            Get-ChildItem "_build" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkYellow }
           }
         }
         
@@ -656,6 +709,10 @@ jobs:
           "if not defined LOCALAPPDATA (set LOCALAPPDATA=%USERPROFILE%\AppData\Local)",
           "if not exist `"%LOCALAPPDATA%\io.bassi.Amberol`" (mkdir `"%LOCALAPPDATA%\io.bassi.Amberol`")",
           "echo Starting Amberol (Portable with all icons)...",
+          "REM Debug: Check for GResource file",
+          "if exist `"%AMBEROL_DIR%bin\amberol.gresource`" (echo   Found GResource in bin/) else (echo   WARNING: GResource missing in bin/)",
+          "if exist `"%AMBEROL_DIR%share\amberol.gresource`" (echo   Found GResource in share/) else (echo   WARNING: GResource missing in share/)",
+          "if exist `"%AMBEROL_DIR%share\amberol\amberol.gresource`" (echo   Found GResource in share/amberol/) else (echo   WARNING: GResource missing in share/amberol/)",
           "`"%AMBEROL_DIR%bin\amberol.exe`" %*",
           "if %ERRORLEVEL% neq 0 (",
           "    echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)",

@@ -70,6 +70,13 @@ echo GStreamer Plugins: %GST_PLUGIN_PATH%
 echo GSettings Schemas: %GSETTINGS_SCHEMA_DIR%
 echo.
 
+REM Debug: Check for GResource file (contains icons and UI)
+echo Checking for application resources...
+if exist "%AMBEROL_DIR%bin\amberol.gresource" (echo   ✓ Found GResource in bin/) else (echo   ✗ WARNING: GResource missing in bin/)
+if exist "%AMBEROL_DIR%share\amberol.gresource" (echo   ✓ Found GResource in share/) else (echo   ✗ WARNING: GResource missing in share/)
+if exist "%AMBEROL_DIR%share\amberol\amberol.gresource" (echo   ✓ Found GResource in share/amberol/) else (echo   ✗ WARNING: GResource missing in share/amberol/)
+echo.
+
 REM Launch Amberol
 echo Starting Amberol...
 "%AMBEROL_DIR%bin\amberol.exe" %*
@@ -86,6 +93,7 @@ if %ERRORLEVEL% neq 0 (
     echo 4. Try running as Administrator
     echo 5. Check if GStreamer plugins are present in: %GST_PLUGIN_PATH%
     echo 6. Check if GSettings schemas are compiled in: %GSETTINGS_SCHEMA_DIR%
+    echo 7. If icons are missing, check if amberol.gresource file exists in bin/ or share/
     echo.
     pause
 )

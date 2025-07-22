@@ -166,15 +166,19 @@ You can configure audio settings by setting environment variables or using the W
 5. **Check GStreamer Plugins**: Ensure MP3 codecs are present in `lib\gstreamer-1.0\`
 
 #### Missing Icons or Theme Issues
-1. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
-2. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
-3. **Comprehensive Icon Fix**: The portable build now includes all missing symbolic icons:
+1. **GResource Check**: Icons are embedded in `amberol.gresource` - verify this file exists:
+   - `bin\amberol.gresource` (primary location)
+   - `share\amberol.gresource` (fallback location)  
+   - `share\amberol\amberol.gresource` (alternative location)
+2. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
+3. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
+4. **Comprehensive Icon Fix**: The portable build includes all missing symbolic icons:
    - Media controls (play, pause, skip, shuffle, repeat)
    - Playlist controls (queue, selection, remove)  
    - Application icons (search, menu, volume)
    - Amberol app icon for "About" dialog
-4. **Automatic Creation**: Missing icons are created automatically during build
-5. **Manual Fix**: If still seeing icon warnings, download a fresh portable build
+5. **Build Issues**: If GResource is missing, the build may have failed icon compilation
+6. **Manual Fix**: Download a fresh portable build if icons still missing
 
 #### Application Won't Start
 1. **Missing DLL Check**: Run the included `check_missing_dlls.ps1` script to identify missing dependencies:
