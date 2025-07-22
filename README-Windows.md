@@ -168,11 +168,13 @@ You can configure audio settings by setting environment variables or using the W
 #### Missing Icons or Theme Issues
 1. **Theme Resources**: Check if `share\libadwaita-1\` and `share\icons\` directories exist
 2. **Keep Original Theme**: The launcher preserves Amberol's original look while providing missing icons
-3. **Missing devel-symbolic.svg**: The launcher automatically creates this if missing, or download a fresh build
-4. **Manual Fix**: If still seeing icon warnings, create an empty SVG file at:
-   ```
-   share\libadwaita-1\styles\assets\devel-symbolic.svg
-   ```
+3. **Comprehensive Icon Fix**: The portable build now includes all missing symbolic icons:
+   - Media controls (play, pause, skip, shuffle, repeat)
+   - Playlist controls (queue, selection, remove)  
+   - Application icons (search, menu, volume)
+   - Amberol app icon for "About" dialog
+4. **Automatic Creation**: Missing icons are created automatically during build
+5. **Manual Fix**: If still seeing icon warnings, download a fresh portable build
 
 #### Application Won't Start
 1. **Missing DLL Check**: Run the included `check_missing_dlls.ps1` script to identify missing dependencies:
