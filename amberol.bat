@@ -38,6 +38,10 @@ REM Enable GStreamer debugging (uncomment for troubleshooting)
 REM set GST_DEBUG=3
 REM set GST_DEBUG_FILE=%AMBEROL_DIR%gstreamer-debug.log
 
+REM Enable GTK icon debugging (uncomment for troubleshooting missing icons)
+REM set GTK_DEBUG=icon-theme
+REM set G_MESSAGES_DEBUG=all
+
 REM Set application data directory
 if not defined LOCALAPPDATA (
     set LOCALAPPDATA=%USERPROFILE%\AppData\Local
@@ -76,6 +80,10 @@ if exist "%AMBEROL_DIR%bin\amberol.gresource" (echo   ✓ Found GResource in bin
 if exist "%AMBEROL_DIR%share\amberol.gresource" (echo   ✓ Found GResource in share/) else (echo   ✗ WARNING: GResource missing in share/)
 if exist "%AMBEROL_DIR%share\amberol\amberol.gresource" (echo   ✓ Found GResource in share/amberol/) else (echo   ✗ WARNING: GResource missing in share/amberol/)
 echo.
+
+REM Try icon workarounds if needed (uncomment one at a time if icons don't show)
+REM set GSK_RENDERER=cairo
+REM set GTK_THEME=Default
 
 REM Launch Amberol
 echo Starting Amberol...
