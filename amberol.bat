@@ -85,10 +85,15 @@ if exist "%AMBEROL_DIR%share\amberol\amberol.gresource" (echo   ✓ Found GResou
 echo.
 
 REM Icon rendering fixes (uncomment if icons appear as missing/broken)
-REM Windows GTK sometimes has SVG rendering issues - try these:
+REM Windows GTK sometimes has SVG rendering issues - try these ONE AT A TIME:
 REM set GSK_RENDERER=cairo
 REM set GTK_THEME=Default
 REM set GDK_SCALE=1
+REM set GTK_DEBUG=icon-theme
+
+REM If icons still show as "image-missing" placeholders:
+REM The SVG files cannot be parsed by Windows GTK's renderer
+REM This is a known limitation with complex SVG files on Windows
 
 REM Launch Amberol
 echo Starting Amberol...

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 1v2H0v2h12v2h1c0.3 0 0.5-0.1 0.7-0.3l2-2c0.4-0.4 0.4-1 0-1.4l-2-2c-0.2-0.2-0.4-0.3-0.7-0.3V1zm0 8v2H0v2h12v2h1c0.3 0 0.5-0.1 0.7-0.3l2-2c0.4-0.4 0.4-1 0-1.4l-2-2c-0.2-0.2-0.4-0.3-0.7-0.3V9z" fill="#2e3436"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <rect x="0" y="3" width="12" height="2" fill="#2e3436"/>
+    <polygon points="12,1 12,7 16,4" fill="#2e3436"/>
+    <rect x="0" y="11" width="12" height="2" fill="#2e3436"/>
+    <polygon points="12,9 12,15 16,12" fill="#2e3436"/>
 </svg>
