@@ -77,7 +77,7 @@ pub mod windows_tray {
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: GetModuleHandleW(None)?.into(),
+                hInstance: GetModuleHandleW(None)?,
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
                 hbrBackground: HBRUSH::default(),
@@ -99,7 +99,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                GetModuleHandleW(None)?.into(),
+                GetModuleHandleW(None)?,
                 None,
             )?;
             
