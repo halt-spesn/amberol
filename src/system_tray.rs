@@ -31,14 +31,12 @@ pub mod windows_tray {
     pub struct SystemTray {
         hwnd: HWND,
         icon_id: u32,
-        on_activate: Option<Box<dyn Fn()>>,
     }
 
     impl std::fmt::Debug for SystemTray {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("SystemTray")
                 .field("icon_id", &self.icon_id)
-                .field("has_callback", &self.on_activate.is_some())
                 .finish()
         }
     }
@@ -50,10 +48,9 @@ pub mod windows_tray {
             // Create a hidden window to receive tray messages
             let hwnd = unsafe { Self::create_hidden_window()? };
             
-            let mut tray = SystemTray {
+            let tray = SystemTray {
                 hwnd,
                 icon_id: 1,
-                on_activate: None,
             };
             
             tray.add_to_tray()?;
@@ -62,11 +59,12 @@ pub mod windows_tray {
             Ok(tray)
         }
         
-        pub fn set_on_activate<F>(&mut self, callback: F) 
+        pub fn set_on_activate<F>(&mut self, _callback: F) 
         where 
             F: Fn() + 'static 
         {
-            self.on_activate = Some(Box::new(callback));
+            // Callback is no longer stored, tray activation is handled directly
+            // This method is kept for API compatibility
         }
         
         unsafe fn create_hidden_window() -> Result<HWND, Box<dyn std::error::Error>> {
@@ -79,7 +77,7 @@ pub mod windows_tray {
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: GetModuleHandleW(None)?,
+                hInstance: GetModuleHandleW(None)?.into(),
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
                 hbrBackground: HBRUSH::default(),
@@ -101,7 +99,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                GetModuleHandleW(None)?,
+                GetModuleHandleW(None)?.into(),
                 None,
             )?;
             
@@ -116,7 +114,7 @@ pub mod windows_tray {
                     uID: self.icon_id,
                     uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
                     uCallbackMessage: WM_TRAYICON,
-                    hIcon: LoadIconW(None, windows::Win32::UI::WindowsAndMessaging::IDI_APPLICATION)?,
+                    hIcon: LoadIconW(None, IDI_APPLICATION)?,
                     ..Default::default()
                 };
                 
@@ -146,22 +144,25 @@ pub mod windows_tray {
                 WM_TRAYICON => {
                     match lparam.0 as u32 {
                         WM_LBUTTONUP | WM_RBUTTONUP => {
-                            info!("🖱️ Tray icon clicked - attempting to restore window");
+                            info!("🖱️ Tray icon clicked - will restore window via GAction");
                             
-                            // Post a message to the main thread to restore the window
+                            // Use a simpler approach: trigger a GAction that can be handled by the application
                             glib::idle_add_once(|| {
-                                if let Some(app) = gio::Application::default() {
-                                    if let Some(window) = app.active_window() {
-                                        info!("📱 Restoring window from tray");
-                                        window.set_visible(true);
-                                        window.present();
-                                        window.activate();
-                                    } else {
-                                        warn!("⚠️ No active window found to restore");
+                                // Look for any GTK application and send a restore action
+                                if let Some(display) = gtk::gdk::Display::default() {
+                                    if let Some(app) = gtk::gio::Application::default() {
+                                        if let Some(window) = app.active_window() {
+                                            info!("📱 Restoring window from tray");
+                                            window.set_visible(true);
+                                            window.present();
+                                            if let Ok(gtk_window) = window.downcast::<gtk::ApplicationWindow>() {
+                                                gtk_window.activate();
+                                            }
+                                            return;
+                                        }
                                     }
-                                } else {
-                                    warn!("⚠️ No application instance found");
                                 }
+                                warn!("⚠️ Could not find GTK application to restore");
                             });
                         }
                         _ => {}
