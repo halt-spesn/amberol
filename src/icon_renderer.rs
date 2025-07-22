@@ -5,6 +5,7 @@
 //! This module creates icons using Cairo drawing instead of SVG files
 
 use gtk::{cairo, gdk, prelude::*};
+use glib::Cast;
 use log::{info, warn};
 
 const ICON_SIZE: i32 = 16;
@@ -101,15 +102,17 @@ impl IconRenderer {
         false // Using normal icon
     }
     
-    /// Apply programmatic icon fallbacks throughout the entire application
-    pub fn apply_global_icon_fallbacks(app: &gtk::Application) {
-        info!("🎨 Applying global programmatic icon fallbacks");
-        
-        // Find all windows in the application
-        for window in app.windows() {
-            Self::apply_window_icon_fallbacks(&window);
+pub fn apply_global_icon_fallbacks(app: &gtk::Application) {
+    info!("🎨 Applying global programmatic icon fallbacks");
+
+    for window in app.windows() {
+        if let Some(app_window) = window.dynamic_cast_ref::<gtk::ApplicationWindow>() {
+            Self::apply_window_icon_fallbacks(app_window);
+        } else {
+            warn!("⚠️ Skipping non-ApplicationWindow instance");
         }
     }
+}
     
     /// Apply programmatic icon fallbacks to a specific window and its children
     pub fn apply_window_icon_fallbacks(window: &gtk::ApplicationWindow) {
