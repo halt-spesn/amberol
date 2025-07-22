@@ -77,7 +77,7 @@ pub mod windows_tray {
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: GetModuleHandleW(None)?.into(),
+                hInstance: GetModuleHandleW(None)?,
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
                 hbrBackground: HBRUSH::default(),
@@ -99,7 +99,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                GetModuleHandleW(None)?.into(),
+                GetModuleHandleW(None)?,
                 None,
             )?;
             
@@ -144,25 +144,40 @@ pub mod windows_tray {
                 WM_TRAYICON => {
                     match lparam.0 as u32 {
                         WM_LBUTTONUP | WM_RBUTTONUP => {
-                            info!("🖱️ Tray icon clicked - will restore window via GAction");
+                            info!("🖱️ Tray icon clicked - will restore window");
                             
-                            // Use a simpler approach: trigger a GAction that can be handled by the application
+                            // Use the simplest approach: look for any hidden window and show it
                             glib::idle_add_once(|| {
-                                // Look for any GTK application and send a restore action
+                                // Try to find the Amberol window by looking for any hidden application window
                                 if let Some(display) = gtk::gdk::Display::default() {
-                                    if let Some(app) = gtk::gio::Application::default() {
-                                        if let Some(window) = app.active_window() {
-                                            info!("📱 Restoring window from tray");
-                                            window.set_visible(true);
-                                            window.present();
-                                            if let Ok(gtk_window) = window.downcast::<gtk::ApplicationWindow>() {
-                                                gtk_window.activate();
+                                    let toplevels = display.list_toplevels();
+                                    for toplevel in toplevels {
+                                        if let Some(window) = toplevel.downcast_ref::<gtk::Window>() {
+                                            // Look for a window that has an application and is not visible
+                                            if window.application().is_some() && !window.is_visible() {
+                                                info!("📱 Restoring hidden application window from tray");
+                                                window.set_visible(true);
+                                                window.present();
+                                                window.activate();
+                                                return;
                                             }
-                                            return;
+                                        }
+                                    }
+                                    
+                                    // Fallback: show any application window
+                                    for toplevel in toplevels {
+                                        if let Some(window) = toplevel.downcast_ref::<gtk::Window>() {
+                                            if window.application().is_some() {
+                                                info!("📱 Showing application window from tray (fallback)");
+                                                window.set_visible(true);
+                                                window.present();
+                                                window.activate();
+                                                return;
+                                            }
                                         }
                                     }
                                 }
-                                warn!("⚠️ Could not find GTK application to restore");
+                                warn!("⚠️ Could not find any application windows to restore");
                             });
                         }
                         _ => {}
