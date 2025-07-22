@@ -657,29 +657,30 @@ jobs:
         
         # Create enhanced launcher that sets up complete environment
         Write-Host "📝 Creating launcher script..." -ForegroundColor Blue
-        $launcherContent = @'
-@echo off
-REM Amberol Portable - Self-Contained with All Dependencies
-setlocal
-set AMBEROL_DIR=%~dp0
-set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
-set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
-set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin
-set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
-set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
-set PATH=%AMBEROL_DIR%bin;%PATH%
-set GSK_RENDERER=gl
-set GTK_USE_PORTAL=0
-if not defined LOCALAPPDATA (set LOCALAPPDATA=%USERPROFILE%\AppData\Local)
-if not exist "%LOCALAPPDATA%\io.bassi.Amberol" (mkdir "%LOCALAPPDATA%\io.bassi.Amberol")
-echo Starting Amberol (Portable with all icons)...
-"%AMBEROL_DIR%bin\amberol.exe" %*
-if %ERRORLEVEL% neq 0 (
-    echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)
-    pause
-)
-endlocal
-'@
+        $launcherLines = @(
+          "@echo off",
+          "REM Amberol Portable - Self-Contained with All Dependencies",
+          "setlocal",
+          "set AMBEROL_DIR=%~dp0",
+          "set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0",
+          "set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0",
+          "set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin",
+          "set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas",
+          "set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%",
+          "set PATH=%AMBEROL_DIR%bin;%PATH%",
+          "set GSK_RENDERER=gl",
+          "set GTK_USE_PORTAL=0",
+          "if not defined LOCALAPPDATA (set LOCALAPPDATA=%USERPROFILE%\AppData\Local)",
+          "if not exist `"%LOCALAPPDATA%\io.bassi.Amberol`" (mkdir `"%LOCALAPPDATA%\io.bassi.Amberol`")",
+          "echo Starting Amberol (Portable with all icons)...",
+          "`"%AMBEROL_DIR%bin\amberol.exe`" %*",
+          "if %ERRORLEVEL% neq 0 (",
+          "    echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)",
+          "    pause",
+          ")",
+          "endlocal"
+        )
+        $launcherContent = $launcherLines -join "`r`n"
         
         Set-Content -Path "$distDir\amberol.bat" -Value $launcherContent
         
