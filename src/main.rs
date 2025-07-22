@@ -21,6 +21,7 @@ mod window;
 #[cfg(target_os = "windows")]
 mod windows;
 mod system_tray;
+mod icon_renderer;
 
 use std::env;
 

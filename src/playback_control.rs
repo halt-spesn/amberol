@@ -5,7 +5,7 @@ use adw::subclass::prelude::*;
 use gtk::{gio, glib, prelude::*, CompositeTemplate};
 use log::{info, warn};
 
-use crate::{audio::RepeatMode, i18n::i18n, volume_control::VolumeControl};
+use crate::{audio::RepeatMode, i18n::i18n, volume_control::VolumeControl, icon_renderer::IconRenderer};
 
 mod imp {
     use super::*;
@@ -209,7 +209,24 @@ impl PlaybackControl {
                     Err(e) => {
                         warn!("  ❌ Failed to parse SVG as texture: {}", e);
                         warn!("     This confirms the SVG data cannot be rendered by Windows GTK");
-                        warn!("     The 'image-missing' fallback will be shown instead");
+                        warn!("     Trying programmatic icon rendering as fallback...");
+                        
+                        // Try creating a programmatic icon
+                        if let Some(icon_widget) = IconRenderer::create_icon_widget(icon_name) {
+                            info!("  🎨 Successfully created programmatic icon widget!");
+                            info!("     Setting button to use programmatic rendering");
+                            
+                            // Set the drawing area as the button's child
+                            repeat_button.set_child(Some(&icon_widget));
+                            
+                            // Don't set icon_name since we're using a custom widget
+                            repeat_button.set_tooltip_text(Some(&tooltip));
+                            info!("  ✅ Programmatic icon successfully applied to button");
+                            return; // Skip normal icon setting
+                        } else {
+                            warn!("  ❌ Programmatic icon creation also failed");
+                            warn!("     The 'image-missing' fallback will be shown instead");
+                        }
                     }
                 }
             } else {
