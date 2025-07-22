@@ -8,18 +8,20 @@ pub mod windows_tray {
     use std::cell::RefCell;
     use std::rc::Rc;
     use windows::Win32::{
-        Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-        Graphics::Gdi::{HICON, LoadIconW},
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM, HINSTANCE},
+        Graphics::Gdi::HBRUSH,
+        System::LibraryLoader::GetModuleHandleW,
         UI::{
             Shell::{
                 Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, 
                 NIM_MODIFY, NOTIFYICONDATAW,
             },
             WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, 
-                LoadCursorW, PostQuitMessage, RegisterClassExW, TranslateMessage, 
-                CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, MSG, WM_APP, WM_DESTROY, 
-                WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, WS_OVERLAPPEDWINDOW,
+                CreateWindowExW, DefWindowProcW, DestroyWindow, LoadCursorW, PostQuitMessage, 
+                RegisterClassExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, 
+                WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, 
+                WS_OVERLAPPEDWINDOW, HICON, LoadIconW, IDI_APPLICATION, WINDOW_EX_STYLE,
+                HMENU,
             },
         },
     };
@@ -30,6 +32,15 @@ pub mod windows_tray {
         hwnd: HWND,
         icon_id: u32,
         on_activate: Option<Box<dyn Fn()>>,
+    }
+
+    impl std::fmt::Debug for SystemTray {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("SystemTray")
+                .field("icon_id", &self.icon_id)
+                .field("has_callback", &self.on_activate.is_some())
+                .finish()
+        }
     }
 
     impl SystemTray {
@@ -68,10 +79,10 @@ pub mod windows_tray {
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: windows::Win32::System::LibraryLoader::GetModuleHandleW(None)?,
+                hInstance: GetModuleHandleW(None)?,
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
-                hbrBackground: windows::Win32::Graphics::Gdi::HBRUSH::default(),
+                hbrBackground: HBRUSH::default(),
                 lpszMenuName: windows::core::PCWSTR::null(),
                 lpszClassName: class_name,
                 hIconSm: HICON::default(),
@@ -80,7 +91,7 @@ pub mod windows_tray {
             RegisterClassExW(&wc);
             
             let hwnd = CreateWindowExW(
-                windows::Win32::UI::WindowsAndMessaging::WINDOW_EX_STYLE::default(),
+                WINDOW_EX_STYLE::default(),
                 class_name,
                 window_name,
                 WS_OVERLAPPEDWINDOW,
@@ -89,8 +100,8 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 HWND::default(),
-                windows::Win32::UI::WindowsAndMessaging::HMENU::default(),
-                windows::Win32::System::LibraryLoader::GetModuleHandleW(None)?,
+                HMENU::default(),
+                GetModuleHandleW(None)?,
                 None,
             )?;
             
@@ -116,7 +127,10 @@ pub mod windows_tray {
                 nid.szTip[..len].copy_from_slice(&tooltip_wide[..len]);
                 nid.szTip[len] = 0; // Null terminate
                 
-                Shell_NotifyIconW(NIM_ADD, &nid)?;
+                let result = Shell_NotifyIconW(NIM_ADD, &nid);
+                if result.as_bool() == false {
+                    return Err("Failed to add system tray icon".into());
+                }
             }
             
             Ok(())
@@ -134,17 +148,19 @@ pub mod windows_tray {
                         WM_LBUTTONUP | WM_RBUTTONUP => {
                             info!("🖱️ Tray icon clicked - attempting to restore window");
                             
-                            // Try to restore the main window through GTK
-                            glib::MainContext::default().spawn_local(async {
-                                if let Some(app) = adw::Application::default() {
+                            // Post a message to the main thread to restore the window
+                            glib::idle_add_once(|| {
+                                if let Some(app) = gio::Application::default() {
                                     if let Some(window) = app.active_window() {
-                                        info!("📱 Found active window, presenting...");
+                                        info!("📱 Restoring window from tray");
+                                        window.set_visible(true);
                                         window.present();
+                                        window.activate();
                                     } else {
-                                        warn!("⚠️ No active window found");
+                                        warn!("⚠️ No active window found to restore");
                                     }
                                 } else {
-                                    warn!("⚠️ No default application found");
+                                    warn!("⚠️ No application instance found");
                                 }
                             });
                         }
@@ -181,6 +197,7 @@ pub mod windows_tray {
 
 #[cfg(not(target_os = "windows"))]
 pub mod windows_tray {
+    #[derive(Debug)]
     pub struct SystemTray;
     
     impl SystemTray {
