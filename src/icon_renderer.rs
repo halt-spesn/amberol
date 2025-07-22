@@ -102,12 +102,14 @@ impl IconRenderer {
     }
     
     /// Apply programmatic icon fallbacks throughout the entire application
-    pub fn apply_global_icon_fallbacks(app: &gtk::Application) {
+    pub fn apply_global_icon_fallbacks(app: &crate::application::Application) {
         info!("🎨 Applying global programmatic icon fallbacks");
         
         // Find all windows in the application
         for window in app.windows() {
-            Self::apply_window_icon_fallbacks(&window);
+            if let Some(app_window) = window.downcast_ref::<gtk::ApplicationWindow>() {
+                Self::apply_window_icon_fallbacks(app_window);
+            }
         }
     }
     
