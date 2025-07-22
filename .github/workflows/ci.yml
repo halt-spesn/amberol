@@ -474,34 +474,123 @@ jobs:
               Write-Host "  ✅ Created missing devel-symbolic.svg" -ForegroundColor Cyan
             }
             
-            # Create other missing symbolic icons that Amberol needs
-            Write-Host "  🎨 Creating missing UI icons..." -ForegroundColor Blue
-            
-            # Media control icons
-            Set-Content -Path "$assetsDir\media-skip-backward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\media-skip-forward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\media-playback-start-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\media-playback-pause-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\view-queue-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\media-playlist-shuffle-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\media-playlist-consecutive-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>' -Encoding UTF8
-            
-            # Playlist control icons
-            Set-Content -Path "$assetsDir\selection-mode-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V2zm2 2h8v8H4z" fill="currentColor"/><path d="M6 8l1.5 1.5L11 6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\edit-select-all-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\app-remove-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" fill="none"/></svg>' -Encoding UTF8
-            
-            # Interface icons
-            Set-Content -Path "$assetsDir\folder-music-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V6l-2-2H8L6 2z" fill="currentColor" opacity="0.5"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\audio-only-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\open-menu-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\system-search-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="m10 10 4 4" stroke="currentColor" stroke-width="2"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\go-previous-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M10 2L4 8l6 6z" fill="currentColor"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\audio-volume-low-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 7c0.5 0.5 0.5 1.5 0 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
-            Set-Content -Path "$assetsDir\audio-volume-high-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4M12.5 4c2 2 2 6 0 8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
-            
-            Write-Host "  ✅ Created 16 missing symbolic icons" -ForegroundColor Cyan
+        # Create missing symbolic icons in the proper icon theme location
+        Write-Host "🎨 Creating missing symbolic icons in icon theme..." -ForegroundColor Blue
+        
+        # Create icons in both Adwaita and hicolor icon theme structures (for maximum compatibility)
+        $iconThemes = @("Adwaita", "hicolor")
+        $iconDirs = @()
+        
+        foreach ($theme in $iconThemes) {
+          $actionsDir = "$shareDir\icons\$theme\scalable\actions"
+          $statusDir = "$shareDir\icons\$theme\scalable\status"
+          $placesDir = "$shareDir\icons\$theme\scalable\places"
+          
+          # Ensure directories exist
+          New-Item -ItemType Directory -Path $actionsDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $statusDir -Force | Out-Null  
+          New-Item -ItemType Directory -Path $placesDir -Force | Out-Null
+          
+          $iconDirs += @{
+            "actions" = $actionsDir
+            "status" = $statusDir  
+            "places" = $placesDir
+            "theme" = $theme
           }
+        }
+        
+        # Define icon SVG content
+        $iconSvgs = @{
+          # Media control icons (actions)
+          "media-skip-backward-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>'
+          "media-skip-forward-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>'
+          "media-playback-start-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>'
+          "media-playback-pause-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>'
+          "view-queue-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>'
+          "media-playlist-shuffle-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>'
+          "media-playlist-consecutive-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>'
+          "selection-mode-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V2zm2 2h8v8H4z" fill="currentColor"/><path d="M6 8l1.5 1.5L11 6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'
+          "edit-select-all-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/></svg>'
+          "app-remove-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" fill="none"/></svg>'
+          "open-menu-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>'
+          "system-search-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="m10 10 4 4" stroke="currentColor" stroke-width="2"/></svg>'
+          "go-previous-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M10 2L4 8l6 6z" fill="currentColor"/></svg>'
+          "audio-volume-low-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 7c0.5 0.5 0.5 1.5 0 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'
+          "audio-volume-high-symbolic.svg" = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4M12.5 4c2 2 2 6 0 8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'
+        }
+        
+        # Create icons in both icon themes for maximum compatibility
+        $createdCount = 0
+        foreach ($iconDirSet in $iconDirs) {
+          # Most icons go in actions
+          foreach ($iconName in $iconSvgs.Keys) {
+            $iconPath = "$($iconDirSet.actions)\$iconName"
+            Set-Content -Path $iconPath -Value $iconSvgs[$iconName] -Encoding UTF8
+            $createdCount++
+          }
+          
+          # Special handling for category-specific icons
+          $placesIcons = @("folder-music-symbolic.svg")
+          $statusIcons = @("audio-only-symbolic.svg")
+          
+          foreach ($icon in $placesIcons) {
+            if ($iconSvgs.ContainsKey($icon)) {
+              $iconPath = "$($iconDirSet.places)\$icon"
+              Set-Content -Path $iconPath -Value $iconSvgs[$icon] -Encoding UTF8
+              $createdCount++
+            }
+          }
+          
+          foreach ($icon in $statusIcons) {
+            if ($iconSvgs.ContainsKey($icon)) {
+              $iconPath = "$($iconDirSet.status)\$icon"
+              Set-Content -Path $iconPath -Value $iconSvgs[$icon] -Encoding UTF8
+              $createdCount++
+            }
+          }
+        }
+        
+        # Add the special icons that weren't in the main list
+        $iconSvgs["folder-music-symbolic.svg"] = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V6l-2-2H8L6 2z" fill="currentColor" opacity="0.5"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1"/></svg>'
+        $iconSvgs["audio-only-symbolic.svg"] = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'
+        
+        # Also create in libadwaita assets directory for devel-symbolic
+        if (Test-Path $stylesDir) {
+          if (-not (Test-Path $assetsDir)) {
+            New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+          }
+          Set-Content -Path "$assetsDir\devel-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/></svg>' -Encoding UTF8
+          $createdCount++
+        }
+        
+                Write-Host "  ✅ Created $createdCount missing symbolic icons in proper icon theme locations" -ForegroundColor Cyan
+        
+        # Update icon cache for both themes (GTK needs this to find the icons)
+        $gtkUpdateIconCache = Join-Path $msys2BinPath "gtk4-update-icon-cache.exe"
+        if (Test-Path $gtkUpdateIconCache) {
+          Write-Host "🔄 Updating icon caches..." -ForegroundColor Blue
+          foreach ($theme in $iconThemes) {
+            $themeDir = "$shareDir\icons\$theme"
+            if (Test-Path $themeDir) {
+              & $gtkUpdateIconCache $themeDir -f -t 2>$null
+              Write-Host "  ✅ Updated $theme icon cache" -ForegroundColor Green
+            }
+          }
+        } else {
+          Write-Host "  ⚠️ gtk4-update-icon-cache not found, trying gtk-update-icon-cache..." -ForegroundColor Yellow
+          $altIconCache = Join-Path $msys2BinPath "gtk-update-icon-cache.exe"
+          if (Test-Path $altIconCache) {
+            foreach ($theme in $iconThemes) {
+              $themeDir = "$shareDir\icons\$theme"
+              if (Test-Path $themeDir) {
+                & $altIconCache $themeDir -f -t 2>$null
+                Write-Host "  ✅ Updated $theme icon cache (legacy)" -ForegroundColor Green
+              }
+            }
+          } else {
+            Write-Host "  ⚠️ No icon cache tool found, icons may not be immediately available" -ForegroundColor Yellow
+          }
+        }
         } else {
           Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
         }
@@ -667,6 +756,8 @@ jobs:
           "set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin",
           "set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas",
           "set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%",
+          "set GTK_DATA_PREFIX=%AMBEROL_DIR%",
+          "set GTK_EXE_PREFIX=%AMBEROL_DIR%",
           "set PATH=%AMBEROL_DIR%bin;%PATH%",
           "set GSK_RENDERER=gl",
           "set GTK_USE_PORTAL=0",

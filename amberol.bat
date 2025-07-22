@@ -19,6 +19,10 @@ REM Set up GLib/GSettings environment
 set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
 set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
 
+REM Set up GTK environment for icon themes
+set GTK_DATA_PREFIX=%AMBEROL_DIR%
+set GTK_EXE_PREFIX=%AMBEROL_DIR%
+
 REM Set up icon environment (keep original Amberol theme)
 REM set GTK_THEME=Adwaita
 REM set ICON_THEME=Adwaita
