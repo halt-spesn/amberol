@@ -24,42 +24,37 @@ config_rs = configure_file(
   configuration: conf
 )
 
-# Copy the config.rs output to the source directory.
-run_command(
-  'cp',
-  meson.project_build_root() / 'src' / 'config.rs',
-  meson.project_source_root() / 'src' / 'config.rs',
-  check: true,
-)
-
-cargo_options = [ '--manifest-path', meson.project_source_root() / 'Cargo.toml' ]
-cargo_options += [ '--target-dir', meson.project_build_root() / 'src' ]
-
+# Build profile
 if get_option('profile') == 'default'
-  cargo_options += [ '--release' ]
-  rust_target = 'release'
+  build_profile = 'release'
   message('Building in release mode')
 else
-  rust_target = 'debug'
+  build_profile = 'debug'
   message('Building in debug mode')
 endif
 
-cargo_env = [ 'CARGO_HOME=' + meson.project_build_root() / 'cargo-home' ]
+# Platform-specific executable name
+exe_suffix = host_machine.system() == 'windows' ? '.exe' : ''
+output_name = meson.project_name() + exe_suffix
+
+# Find Python
+python = find_program('python3', 'python')
 
 cargo_release = custom_target(
   'cargo-build',
   build_by_default: true,
   build_always_stale: true,
-  output: meson.project_name(),
+  output: output_name,
   console: true,
   install: true,
   install_dir: get_option('bindir'),
   command: [
-    'env',
-    cargo_env,
-    cargo, 'build',
-    cargo_options,
-    '&&',
-    'cp', 'src' / rust_target / meson.project_name(), '@OUTPUT@',
+    python, meson.project_source_root() / 'build_cargo.py',
+    '--cargo-home', meson.project_build_root() / 'cargo-home',
+    '--manifest-path', meson.project_source_root() / 'Cargo.toml',
+    '--target-dir', meson.project_build_root() / 'src',
+    '--profile', build_profile,
+    '--output', '@OUTPUT@',
+    '--project-name', meson.project_name(),
   ],
 )

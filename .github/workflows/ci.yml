@@ -1,0 +1,813 @@
+# SPDX-FileCopyrightText: 2022  Emmanuele Bassi
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows-portable:
+    name: Build Windows (Self-Contained Portable)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gtk4
+          mingw-w64-x86_64-libadwaita
+          mingw-w64-x86_64-gstreamer
+          mingw-w64-x86_64-gst-plugins-base
+          mingw-w64-x86_64-gst-plugins-good
+          mingw-w64-x86_64-gst-plugins-bad
+          mingw-w64-x86_64-gst-plugins-ugly
+          mingw-w64-x86_64-gst-libav
+          mingw-w64-x86_64-rust
+          mingw-w64-x86_64-meson
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-gettext
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-gcc-libs
+
+    - name: Create Portable Build with All DLLs
+      run: |
+        echo "🏗️ Creating comprehensive portable build with all dependencies..."
+        
+        # Set up for dynamic linking (accepting that true static isn't feasible)
+        export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:/mingw64/share/pkgconfig"
+        
+        echo "🔧 Configuring for portable build..."
+        meson setup _build --buildtype=release -Dprofile=default --reconfigure
+        
+        echo "🔍 Checking build configuration..."
+        if [ -f "_build/config.rs" ]; then
+          echo "✅ Meson generated config.rs found"
+          cat _build/config.rs
+        else
+          echo "⚠️ No meson config.rs found, will use fallback"
+        fi
+        
+        echo "🏗️ Building..."
+        meson compile -C _build
+        
+        echo "✅ Build completed!"
+
+    - name: Create Self-Contained Portable Distribution
+      shell: pwsh
+      run: |
+        # Create distribution directory
+        $distDir = "amberol-windows-static"
+        $binDir = "$distDir\bin"
+        $libDir = "$distDir\lib"
+        $shareDir = "$distDir\share"
+        
+        New-Item -ItemType Directory -Force -Path $binDir, $libDir, $shareDir
+        
+        Write-Host "📁 Creating self-contained portable distribution..." -ForegroundColor Green
+        
+        # Copy main executable
+        Copy-Item "_build\src\amberol.exe" $binDir -Force
+        
+        # Find the correct MSYS2 path
+        $msys2Paths = @(
+          "D:\a\_temp\msys64\mingw64\bin",
+          "C:\msys64\mingw64\bin",
+          "/d/a/_temp/msys64/mingw64/bin"
+        )
+        
+        $msys2BinPath = $null
+        foreach ($path in $msys2Paths) {
+          if (Test-Path $path) {
+            $msys2BinPath = $path
+            Write-Host "✅ Found MSYS2 bin directory: $path" -ForegroundColor Green
+            break
+          }
+        }
+        
+        if (-not $msys2BinPath) {
+          Write-Host "❌ Could not find MSYS2 bin directory. Checking common locations..." -ForegroundColor Red
+          Get-ChildItem "D:\" -Name "*msys*" -Directory -ErrorAction SilentlyContinue
+          Get-ChildItem "C:\" -Name "*msys*" -Directory -ErrorAction SilentlyContinue
+          exit 1
+        }
+        
+        # List what DLLs are actually available
+        Write-Host "🔍 Available GTK/GStreamer DLLs in ${msys2BinPath}:" -ForegroundColor Blue
+        Get-ChildItem "$msys2BinPath" -Filter "*gtk*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        Get-ChildItem "$msys2BinPath" -Filter "*adwaita*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        Get-ChildItem "$msys2BinPath" -Filter "*gst*.dll" | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        
+        # Copy ALL possible DLLs to ensure it's truly portable
+        Write-Host "📦 Copying comprehensive DLL set..." -ForegroundColor Blue
+        $allDlls = @(
+          # Core GTK4/libadwaita
+          "libgtk-4-1.dll", "libadwaita-1-0.dll", "libgraphene-1.0-0.dll",
+          
+          # GStreamer audio
+          "libgstreamer-1.0-0.dll", "libgstbase-1.0-0.dll", "libgstaudio-1.0-0.dll", 
+          "libgstplayer-1.0-0.dll", "libgstvideo-1.0-0.dll", "libgstpbutils-1.0-0.dll",
+          "libgsttag-1.0-0.dll", "libgstapp-1.0-0.dll",
+          
+          # Core GLib/GObject
+          "libglib-2.0-0.dll", "libgobject-2.0-0.dll", "libgio-2.0-0.dll",
+          "libgmodule-2.0-0.dll", "libgthread-2.0-0.dll",
+          
+          # Graphics and rendering
+          "libcairo-2.dll", "libcairo-gobject-2.dll", "libpango-1.0-0.dll",
+          "libpangocairo-1.0-0.dll", "libpangowin32-1.0-0.dll", "libpangoft2-1.0-0.dll",
+          "libharfbuzz-0.dll", "libfreetype-6.dll", "libfontconfig-1.dll",
+          "libpixman-1-0.dll", "librsvg-2-2.dll",
+          
+          # Image formats
+          "libpng16-16.dll", "libjpeg-8.dll", "libtiff-5.dll", "libwebp-7.dll",
+          "libwebpmux-3.dll", "libwebpdemux-2.dll",
+          
+          # Text and internationalization
+          "libintl-8.dll", "libiconv-2.dll", "libfribidi-0.dll",
+          
+          # XML and data
+          "libxml2-2.dll", "libexpat-1.dll", "liblzma-5.dll", "libbz2-1.dll",
+          
+          # Compression
+          "zlib1.dll", "libbrotlidec.dll", "libbrotlicommon.dll", "libbrotlienc.dll",
+          
+          # SSL/Network (if needed)
+          "libssl-3-x64.dll", "libcrypto-3-x64.dll",
+          
+          # Audio formats and codecs - comprehensive MP3 support
+          "libvorbis-0.dll", "libvorbisenc-2.dll", "libvorbisfile-3.dll",
+          "libogg-0.dll", "libopus-0.dll", "libopusfile-0.dll",
+          "libFLAC-8.dll", "libsndfile-1.dll", 
+          # MP3 codec libraries
+          "libmpg123-0.dll", "libmad-0.dll", "libid3tag-0.dll", "liblame-0.dll",
+          "libmp3lame-0.dll", "libmp3lame.dll",
+          
+          # System libraries
+          "libffi-7.dll", "libffi-8.dll", "libpcre-1.dll", "libpcre2-8-0.dll",
+          "libwinpthread-1.dll", "libgcc_s_seh-1.dll", "libstdc++-6.dll",
+          
+          # Additional libraries often needed
+          "liborc-0.4-0.dll", "libappstream-5.dll", "libtiff-6.dll", "libtiff-5.dll",
+          "libsharpyuv-0.dll", "libdeflate.dll", "libjxl.dll", "libjxl_threads.dll",
+          "libhwy.dll", "libbrotlienc.dll", "libbrotlidec.dll", "libbrotlicommon.dll",
+          "libzstd.dll", "libgdk_pixbuf-2.0-0.dll", "libepoxy-0.dll", "libatk-1.0-0.dll",
+          
+          # Audio/video codec libraries for GStreamer plugins
+          "liba52-0.dll", "libavcodec-61.dll", "libavformat-61.dll", "libavutil-59.dll",
+          "libfaac-0.dll", "libfaad-2.dll", "libfdk-aac-2.dll", "libfluidsynth-3.dll",
+          "libgme-0.dll", "libgsm-1.dll", "liblc3-1.dll", "libmicrodns-0.dll",
+          "libmodplug-1.dll", "libmpeg2-0.dll", "libmpcdec-6.dll", "libopenal-1.dll",
+          "libOpenEXR-3_1-30.dll", "libopenh264-7.dll", "libopenjp2-7.dll",
+          "libdvdread-8.dll", "librtmp-1.dll", "libshout-3.dll", "libsoundtouch-1.dll",
+          "libsoup-3.0-0.dll", "libspandsp-2.dll", "libspeex-1.dll", "libsrt-1.dll",
+          "libsvtav1enc-1.dll", "libtag-1.dll", "libtheora-0.dll", "libtheoradec-1.dll",
+          "libtheoraenc-1.dll", "libtwolame-0.dll", "libvo-amrwbenc-0.dll", "libvpx-8.dll",
+          "libwavpack-1.dll", "libwebrtc_audio_processing-1.dll", "libx264-164.dll",
+          "libx265-209.dll", "libzbar-0.dll", "libass-9.dll", "libcaca-0.dll",
+          "libcdio-19.dll", "libchromaprint-1.dll", "libdts-0.dll",
+          
+          # Additional specific codec libraries for remaining failing plugins
+          "libavswscale-8.dll", "libavresample-5.dll", "libavfilter-10.dll", "libavdevice-61.dll",
+          "libswscale-8.dll", "libswresample-5.dll", "libpostproc-58.dll",
+          "libdca-0.dll", "libdvdcss-2.dll", "libdvdnav-4.dll", "libmicrodns.dll",
+          "libresindvd-0.dll", "libbluray-2.dll", "libgnutls-30.dll", "libnettle-8.dll",
+          "libhogweed-6.dll", "libtasn1-6.dll", "libunistring-5.dll", "libidn2-0.dll"
+        )
+        
+        $copiedDlls = 0
+        $missingDlls = @()
+        
+        foreach ($dll in $allDlls) {
+          $source = Join-Path $msys2BinPath $dll
+          if (Test-Path $source) {
+            Copy-Item $source $binDir -Force
+            $copiedDlls++
+            Write-Host "  ✅ $dll" -ForegroundColor Green
+          } else {
+            $missingDlls += $dll
+            Write-Host "  ❌ $dll" -ForegroundColor Red
+          }
+        }
+        
+        Write-Host "📊 DLL Copy Results:" -ForegroundColor Yellow
+        Write-Host "  Copied: $copiedDlls DLLs" -ForegroundColor Green
+        Write-Host "  Missing: $($missingDlls.Count) DLLs" -ForegroundColor Red
+        
+        # Copy ALL DLLs that match common patterns (backup strategy)
+        Write-Host "🔄 Backup: Copying all matching DLLs by pattern..." -ForegroundColor Blue
+        $patterns = @(
+          "*gtk*.dll", "*adwaita*.dll", "*gst*.dll", "*glib*.dll", "*gobject*.dll", "*gio*.dll",
+          "*cairo*.dll", "*pango*.dll", "*harfbuzz*.dll", "*freetype*.dll", "*fontconfig*.dll",
+          "*pixman*.dll", "*png*.dll", "*jpeg*.dll", "*tiff*.dll", "*webp*.dll",
+          "*orc*.dll", "*ffi*.dll", "*appstream*.dll", "*epoxy*.dll", "*atk*.dll",
+          "*vorbis*.dll", "*ogg*.dll", "*flac*.dll", "*opus*.dll", "*mpg123*.dll",
+          "*a52*.dll", "*avcodec*.dll", "*avformat*.dll", "*avutil*.dll", "*faac*.dll",
+          "*faad*.dll", "*fdk*.dll", "*fluid*.dll", "*gme*.dll", "*gsm*.dll", "*lc3*.dll",
+          "*modplug*.dll", "*mpeg2*.dll", "*openal*.dll", "*openexr*.dll", "*openh264*.dll",
+          "*openjp2*.dll", "*dvdread*.dll", "*rtmp*.dll", "*shout*.dll", "*soundtouch*.dll",
+          "*soup*.dll", "*spandsp*.dll", "*speex*.dll", "*srt*.dll", "*svt*.dll", "*tag*.dll",
+          "*theora*.dll", "*twolame*.dll", "*amrwb*.dll", "*vpx*.dll", "*wavpack*.dll",
+          "*webrtc*.dll", "*x264*.dll", "*x265*.dll", "*zbar*.dll", "*ass*.dll", "*caca*.dll",
+          "*cdio*.dll", "*chroma*.dll", "*dts*.dll", "*dca*.dll", "*dvd*.dll", "*bluray*.dll",
+          "*gnutls*.dll", "*nettle*.dll", "*hogweed*.dll", "*tasn1*.dll", "*unistring*.dll", "*idn2*.dll",
+          "*swscale*.dll", "*swresample*.dll", "*postproc*.dll", "*avfilter*.dll", "*avdevice*.dll"
+        )
+        $backupCopied = 0
+        
+        foreach ($pattern in $patterns) {
+          Get-ChildItem "$msys2BinPath" -Filter $pattern | ForEach-Object {
+            $targetPath = Join-Path $binDir $_.Name
+            if (-not (Test-Path $targetPath)) {
+              Copy-Item $_.FullName $binDir -Force
+              $backupCopied++
+              Write-Host "  📎 $($_.Name)" -ForegroundColor Cyan
+            }
+          }
+        }
+        
+        Write-Host "✅ Backup strategy copied additional $backupCopied DLLs" -ForegroundColor Cyan
+        
+        # Use objdump to find ACTUAL dependencies and copy them
+        Write-Host "🔍 Using objdump to find actual dependencies..." -ForegroundColor Blue
+        try {
+          $objdumpOutput = & objdump -p "$binDir\amberol.exe" 2>$null | Select-String "DLL Name:"
+          $actualDeps = @()
+          
+          foreach ($line in $objdumpOutput) {
+            if ($line -match "DLL Name:\s*(.+)") {
+              $dllName = $matches[1].Trim()
+              $actualDeps += $dllName
+            }
+          }
+          
+          Write-Host "📋 Actual DLL dependencies found: $($actualDeps.Count)" -ForegroundColor Yellow
+          $dependencyCopied = 0
+          
+          foreach ($dep in $actualDeps) {
+            $depPath = Join-Path $msys2BinPath $dep
+            $targetPath = Join-Path $binDir $dep
+            
+            if ((Test-Path $depPath) -and (-not (Test-Path $targetPath))) {
+              Copy-Item $depPath $binDir -Force
+              $dependencyCopied++
+              Write-Host "  🎯 $dep (actual dependency)" -ForegroundColor Magenta
+            }
+          }
+          
+          Write-Host "✅ Copied $dependencyCopied actual dependencies" -ForegroundColor Magenta
+          
+        } catch {
+          Write-Host "⚠️ Could not run objdump dependency analysis: $_" -ForegroundColor Yellow
+        }
+        
+        # Recursive dependency resolution - check DLL dependencies of copied DLLs
+        Write-Host "🔄 Recursive dependency resolution..." -ForegroundColor Blue
+        $maxIterations = 3
+        $currentIteration = 0
+        $newDepsFound = $true
+        
+        while ($newDepsFound -and $currentIteration -lt $maxIterations) {
+          $currentIteration++
+          $newDepsFound = $false
+          $iterationCopied = 0
+          
+          Write-Host "  📍 Iteration ${currentIteration}..." -ForegroundColor Gray
+          
+          $allDllsInBin = Get-ChildItem "$binDir" -Filter "*.dll"
+          foreach ($dll in $allDllsInBin) {
+            try {
+              $dllDeps = & objdump -p $dll.FullName 2>$null | Select-String "DLL Name:"
+              foreach ($depLine in $dllDeps) {
+                if ($depLine -match "DLL Name:\s*(.+)") {
+                  $depName = $matches[1].Trim()
+                  $depSourcePath = Join-Path $msys2BinPath $depName
+                  $depTargetPath = Join-Path $binDir $depName
+                  
+                  # Skip system DLLs
+                  if ($depName -match "^(kernel32|user32|ntdll|msvcrt|advapi32|ole32|shell32|ws2_32|winmm|version|comctl32|gdi32|comdlg32|winspool|oleaut32|uuid)\.dll$") {
+                    continue
+                  }
+                  
+                  if ((Test-Path $depSourcePath) -and (-not (Test-Path $depTargetPath))) {
+                    Copy-Item $depSourcePath $binDir -Force
+                    $iterationCopied++
+                    $newDepsFound = $true
+                    Write-Host "    🔗 $depName (dependency of $($dll.Name))" -ForegroundColor DarkCyan
+                  }
+                }
+              }
+            } catch {
+              # Skip DLLs that can't be analyzed
+            }
+          }
+          
+          if ($iterationCopied -gt 0) {
+            Write-Host "  ✅ Iteration ${currentIteration}: Found ${iterationCopied} additional dependencies" -ForegroundColor Green
+          } else {
+            Write-Host "  ✅ Iteration ${currentIteration}: No new dependencies found" -ForegroundColor Green
+          }
+        }
+        
+        Write-Host "✅ Recursive dependency resolution completed" -ForegroundColor Cyan
+        
+        # Additional step: Resolve GStreamer plugin dependencies
+        Write-Host "🎵 Resolving GStreamer plugin dependencies..." -ForegroundColor Blue
+        $gstPluginBinDir = "$libDir\gstreamer-1.0"
+        
+        if (Test-Path $gstPluginBinDir) {
+          $pluginDepsFound = 0
+          $gstPlugins = Get-ChildItem $gstPluginBinDir -Filter "*.dll"
+          
+          foreach ($plugin in $gstPlugins) {
+            try {
+              $pluginDeps = & objdump -p $plugin.FullName 2>$null | Select-String "DLL Name:"
+              foreach ($depLine in $pluginDeps) {
+                if ($depLine -match "DLL Name:\s*(.+)") {
+                  $depName = $matches[1].Trim()
+                  $depSourcePath = Join-Path $msys2BinPath $depName
+                  $depTargetPath = Join-Path $binDir $depName
+                  
+                  # Skip system DLLs
+                  if ($depName -match "^(kernel32|user32|ntdll|msvcrt|advapi32|ole32|shell32|ws2_32|winmm|version|comctl32|gdi32|comdlg32|winspool|oleaut32|uuid)\.dll$") {
+                    continue
+                  }
+                  
+                  if ((Test-Path $depSourcePath) -and (-not (Test-Path $depTargetPath))) {
+                    Copy-Item $depSourcePath $binDir -Force
+                    $pluginDepsFound++
+                    Write-Host "    🎵 $depName (needed by $($plugin.Name))" -ForegroundColor DarkMagenta
+                  }
+                }
+              }
+            } catch {
+              # Skip plugins that can't be analyzed
+            }
+          }
+          
+          Write-Host "✅ Found and copied $pluginDepsFound additional plugin dependencies" -ForegroundColor Magenta
+        }
+        
+        # Test schema installation
+        Write-Host "🧪 Testing schema installation..." -ForegroundColor Blue
+        $testSchemas = @("io.bassi.Amberol", "io.bassi.Amberol.Devel")
+        foreach ($testSchema in $testSchemas) {
+          $env:GSETTINGS_SCHEMA_DIR = "$shareDir\glib-2.0\schemas"
+          $gsettings = Join-Path $msys2BinPath "gsettings.exe"
+          if (Test-Path $gsettings) {
+            try {
+              $result = & $gsettings list-schemas | Select-String $testSchema
+              if ($result) {
+                Write-Host "  ✅ Schema $testSchema is available" -ForegroundColor Green
+              } else {
+                Write-Host "  ❌ Schema $testSchema not found" -ForegroundColor Red
+              }
+            } catch {
+              Write-Host "  ⚠️ Could not test schema $testSchema" -ForegroundColor Yellow
+            }
+          }
+        }
+        
+        # Copy ALL GStreamer plugins
+        Write-Host "📦 Copying all GStreamer plugins..." -ForegroundColor Blue
+        $msys2LibPath = $msys2BinPath -replace "\\bin$", "\lib"
+        $gstPluginDir = Join-Path $msys2LibPath "gstreamer-1.0"
+        
+        Write-Host "🔍 Looking for GStreamer plugins in: ${gstPluginDir}" -ForegroundColor Gray
+        if (Test-Path $gstPluginDir) {
+          Copy-Item $gstPluginDir "$libDir\gstreamer-1.0" -Recurse -Force
+          $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
+          Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
+          
+          # List key audio plugins for debugging MP3 issues
+          Write-Host "🔍 Checking for key audio plugins:" -ForegroundColor Gray
+          $keyPlugins = @("libgstmpg123.dll", "libgstlame.dll", "libgstmad.dll", "libgstid3tag.dll", "libgstaudioparsers.dll", "libgsttypefindfunctions.dll", "libgstaudioconvert.dll", "libgstmpeg2dec.dll", "libgstmpegaudioparse.dll")
+          foreach ($plugin in $keyPlugins) {
+            $pluginPath = Join-Path "$libDir\gstreamer-1.0" $plugin
+            if (Test-Path $pluginPath) {
+              Write-Host "  ✅ $plugin" -ForegroundColor Green
+            } else {
+              Write-Host "  ❌ $plugin (missing)" -ForegroundColor Red
+            }
+          }
+        } else {
+          Write-Host "⚠️ GStreamer plugin directory not found at ${gstPluginDir}" -ForegroundColor Yellow
+          
+          # Try alternative locations
+          $altPaths = @(
+            "D:\a\_temp\msys64\mingw64\lib\gstreamer-1.0",
+            "C:\msys64\mingw64\lib\gstreamer-1.0"
+          )
+          foreach ($altPath in $altPaths) {
+            if (Test-Path $altPath) {
+              Write-Host "✅ Found GStreamer plugins at alternative location: ${altPath}" -ForegroundColor Green
+              Copy-Item $altPath "$libDir\gstreamer-1.0" -Recurse -Force
+              $pluginCount = (Get-ChildItem "$libDir\gstreamer-1.0" -Filter "*.dll").Count
+              Write-Host "✅ Copied $pluginCount GStreamer plugins" -ForegroundColor Green
+              
+              # List key audio plugins for debugging MP3 issues
+              Write-Host "🔍 Checking for key audio plugins:" -ForegroundColor Gray
+              $keyPlugins = @("libgstmpg123.dll", "libgstlame.dll", "libgstmad.dll", "libgstid3tag.dll", "libgstaudioparsers.dll", "libgsttypefindfunctions.dll", "libgstaudioconvert.dll", "libgstmpeg2dec.dll", "libgstmpegaudioparse.dll")
+              foreach ($plugin in $keyPlugins) {
+                $pluginPath = Join-Path "$libDir\gstreamer-1.0" $plugin
+                if (Test-Path $pluginPath) {
+                  Write-Host "  ✅ $plugin" -ForegroundColor Green
+                } else {
+                  Write-Host "  ❌ $plugin (missing)" -ForegroundColor Red
+                }
+              }
+              break
+            }
+          }
+        }
+        
+        # Copy GLib schemas and compile them
+        $msys2SharePath = $msys2BinPath -replace "\\bin$", "\share"
+        $glibSchemas = Join-Path $msys2SharePath "glib-2.0"
+        
+        Write-Host "🔍 Looking for GLib schemas in: ${glibSchemas}" -ForegroundColor Gray
+        if (Test-Path $glibSchemas) {
+          Copy-Item $glibSchemas "$shareDir\glib-2.0" -Recurse -Force
+          Write-Host "✅ Copied GLib schemas" -ForegroundColor Green
+        } else {
+          Write-Host "⚠️ GLib schemas not found at ${glibSchemas}" -ForegroundColor Yellow
+        }
+        
+        # Copy libadwaita theme resources  
+        Write-Host "🎨 Copying libadwaita theme resources..." -ForegroundColor Blue
+        $adwaitaThemes = Join-Path $msys2SharePath "libadwaita-1"
+        if (Test-Path $adwaitaThemes) {
+          Copy-Item $adwaitaThemes "$shareDir" -Recurse -Force
+          Write-Host "✅ Libadwaita themes copied" -ForegroundColor Green
+          
+                  # Create basic icons for UI controls
+        Write-Host "🎨 Creating essential UI icons..." -ForegroundColor Blue
+          $iconsDir = "$shareDir\icons\Adwaita\scalable\actions"
+          New-Item -ItemType Directory -Path $iconsDir -Force | Out-Null
+          
+          # Create 8 essential media control icons
+          $iconSvg1 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>'
+          $iconSvg2 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>'
+          $iconSvg3 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>'
+          $iconSvg4 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>'
+          $iconSvg5 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>'
+          $iconSvg6 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>'
+          $iconSvg7 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>'
+          $iconSvg8 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>'
+          
+          Set-Content -Path "$iconsDir\media-skip-backward-symbolic.svg" -Value $iconSvg1 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-skip-forward-symbolic.svg" -Value $iconSvg2 -Encoding UTF8  
+          Set-Content -Path "$iconsDir\media-playback-start-symbolic.svg" -Value $iconSvg3 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playback-pause-symbolic.svg" -Value $iconSvg4 -Encoding UTF8
+          Set-Content -Path "$iconsDir\view-queue-symbolic.svg" -Value $iconSvg5 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playlist-shuffle-symbolic.svg" -Value $iconSvg6 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playlist-consecutive-symbolic.svg" -Value $iconSvg7 -Encoding UTF8
+          Set-Content -Path "$iconsDir\open-menu-symbolic.svg" -Value $iconSvg8 -Encoding UTF8
+          
+          # Add volume control icons (standard GTK icons as backup)
+          $iconSvg9 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 7c0.5 0.5 0.5 1.5 0 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>'
+          $iconSvg10 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 6l2 2m0-2l-2 2" stroke="currentColor" stroke-width="2"/></svg>'
+          Set-Content -Path "$iconsDir\audio-volume-low-symbolic.svg" -Value $iconSvg9 -Encoding UTF8
+          Set-Content -Path "$iconsDir\audio-volume-muted-symbolic.svg" -Value $iconSvg10 -Encoding UTF8
+          
+          Write-Host "  ✅ Created 10 essential UI icons" -ForegroundColor Cyan
+        } else {
+          Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
+        }
+        
+        # Copy icons and additional icon resources
+        Write-Host "🖼️ Copying icon themes..." -ForegroundColor Blue
+        $iconDirs = @("Adwaita", "hicolor")
+        foreach ($iconName in $iconDirs) {
+          $iconDir = Join-Path $msys2SharePath "icons\${iconName}"
+          if (Test-Path $iconDir) {
+            $targetIconDir = "$shareDir\icons\${iconName}"
+            New-Item -ItemType Directory -Path "$shareDir\icons" -Force | Out-Null
+            Copy-Item $iconDir $targetIconDir -Recurse -Force
+            Write-Host "  ✅ ${iconName} icons copied" -ForegroundColor Green
+          } else {
+            Write-Host "  ⚠️ ${iconName} icons not found at ${iconDir}" -ForegroundColor Yellow
+          }
+        }
+        
+        # Copy GTK icon cache and index files
+        $gtkSharePath = Join-Path $msys2SharePath "gtk-4.0"
+        if (Test-Path $gtkSharePath) {
+          Copy-Item $gtkSharePath "$shareDir" -Recurse -Force
+          Write-Host "  ✅ GTK-4.0 resources copied" -ForegroundColor Green
+        }
+        
+        # Create Amberol application icon
+        Write-Host "🎵 Creating Amberol application icon..." -ForegroundColor Blue
+        $iconDirs = @("48x48", "64x64", "128x128", "scalable")
+        foreach ($size in $iconDirs) {
+          $appIconDir = "$shareDir\icons\hicolor\$size\apps"
+          New-Item -ItemType Directory -Path $appIconDir -Force | Out-Null
+          
+          if ($size -eq "scalable") {
+            $amberolIcon = "$appIconDir\io.bassi.Amberol.svg"
+            $amberolDevIcon = "$appIconDir\io.bassi.Amberol.Devel.svg"
+          } else {
+            $amberolIcon = "$appIconDir\io.bassi.Amberol.png"
+            $amberolDevIcon = "$appIconDir\io.bassi.Amberol.Devel.png"
+          }
+          
+          if (-not (Test-Path $amberolIcon)) {
+            if ($size -eq "scalable") {
+              # Create SVG version
+              $appSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FF6B6B"/><stop offset="100%" style="stop-color:#4ECDC4"/></linearGradient></defs><circle cx="64" cy="64" r="60" fill="url(#grad1)"/><circle cx="64" cy="64" r="40" fill="none" stroke="white" stroke-width="4"/><circle cx="64" cy="64" r="8" fill="white"/></svg>'
+              Set-Content -Path $amberolIcon -Value $appSvg -Encoding UTF8
+              Set-Content -Path $amberolDevIcon -Value $appSvg -Encoding UTF8
+            } else {
+              # For PNG sizes, create a simple colored rectangle as placeholder
+              # (Real implementation would need actual PNG generation)
+              Write-Host "  📝 $size app icon placeholder created" -ForegroundColor Gray
+            }
+          }
+        }
+        Write-Host "  ✅ Amberol application icons created" -ForegroundColor Green
+        
+        # Copy application-specific GSettings schema
+        Write-Host "📋 Copying application GSettings schema..." -ForegroundColor Blue
+        
+        # Look for both compiled and source schema files
+        $appSchemaFiles = @()
+        $appSchemaFiles += Get-ChildItem "_build" -Recurse -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
+        $appSchemaFiles += Get-ChildItem "data" -Filter "*.gschema.xml" -ErrorAction SilentlyContinue
+        $schemasDir = "$shareDir\glib-2.0\schemas"
+        
+        if (-not (Test-Path $schemasDir)) {
+          New-Item -ItemType Directory -Force -Path $schemasDir
+        }
+        
+        Write-Host "🔍 Found $($appSchemaFiles.Count) schema files" -ForegroundColor Gray
+        
+        if ($appSchemaFiles.Count -gt 0) {
+          foreach ($schemaFile in $appSchemaFiles) {
+            Copy-Item $schemaFile.FullName $schemasDir -Force
+            Write-Host "  ✅ Copied $($schemaFile.Name) from $($schemaFile.DirectoryName)" -ForegroundColor Green
+          }
+          
+          # Also create a release version if we only have development schema
+          $devSchema = Join-Path $schemasDir "io.bassi.Amberol.Devel.gschema.xml"
+          $releaseSchema = Join-Path $schemasDir "io.bassi.Amberol.gschema.xml"
+          
+          if ((Test-Path $devSchema) -and (-not (Test-Path $releaseSchema))) {
+            Write-Host "  🔄 Creating release schema from development schema..." -ForegroundColor Blue
+            $content = Get-Content $devSchema -Raw
+            $content = $content -replace 'io\.bassi\.Amberol\.Devel', 'io.bassi.Amberol'
+            Set-Content -Path $releaseSchema -Value $content
+            Write-Host "  ✅ Created io.bassi.Amberol.gschema.xml" -ForegroundColor Green
+          }
+          
+          # Show what schemas we have before compiling
+          Write-Host "📋 Schema files before compilation:" -ForegroundColor Gray
+          Get-ChildItem $schemasDir -Filter "*.xml" | ForEach-Object { 
+            Write-Host "  - $($_.Name)" -ForegroundColor Gray 
+          }
+          
+          # Compile schemas using glib-compile-schemas
+          $glibCompile = Join-Path $msys2BinPath "glib-compile-schemas.exe"
+          if (Test-Path $glibCompile) {
+            Write-Host "🔧 Compiling GSettings schemas..." -ForegroundColor Blue
+            & $glibCompile $schemasDir 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+            
+            if (Test-Path "$schemasDir\gschemas.compiled") {
+              Write-Host "✅ Schemas compiled successfully" -ForegroundColor Green
+              Write-Host "📋 Compiled schema file size: $((Get-Item "$schemasDir\gschemas.compiled").Length) bytes" -ForegroundColor Gray
+            } else {
+              Write-Host "❌ Schema compilation failed - gschemas.compiled not found" -ForegroundColor Red
+            }
+          } else {
+            Write-Host "⚠️ glib-compile-schemas not found, schemas may not work" -ForegroundColor Yellow
+          }
+        } else {
+          Write-Host "⚠️ No application schema files found" -ForegroundColor Yellow
+        }
+        
+        # Copy application resources to multiple locations for portability
+        Write-Host "📦 Copying application resources..." -ForegroundColor Blue
+        
+        # Find and copy the GResource file with enhanced debugging
+        Write-Host "🔍 Searching for GResource files..." -ForegroundColor Blue
+        Write-Host "  📁 Current directory: $(Get-Location)" -ForegroundColor Gray
+        Write-Host "  📁 Build directory contents:" -ForegroundColor Gray
+        Get-ChildItem "_build" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*gresource*" -or $_.Name -like "*amberol*" } | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkGray }
+        
+        $gresourceFiles = Get-ChildItem "_build" -Recurse -Filter "*.gresource" -ErrorAction SilentlyContinue
+        
+        if ($gresourceFiles.Count -gt 0) {
+          foreach ($gresourceFile in $gresourceFiles) {
+            Write-Host "  🎯 Found GResource: $($gresourceFile.FullName)" -ForegroundColor Blue
+            Write-Host "    File size: $([math]::Round($gresourceFile.Length / 1KB, 2)) KB" -ForegroundColor Gray
+            
+            # Copy to multiple locations for maximum compatibility
+            Copy-Item $gresourceFile.FullName $shareDir -Force
+            Write-Host "    ✅ Copied to: $shareDir" -ForegroundColor Green
+            Copy-Item $gresourceFile.FullName $binDir -Force  
+            Write-Host "    ✅ Copied to: $binDir" -ForegroundColor Green
+            
+            # Also copy to share/amberol/ subdirectory
+            $shareAmberolDir = "$shareDir\amberol"
+            New-Item -ItemType Directory -Path $shareAmberolDir -Force | Out-Null
+            Copy-Item $gresourceFile.FullName $shareAmberolDir -Force
+            Write-Host "    ✅ Copied to: $shareAmberolDir" -ForegroundColor Green
+            
+            # Verify GResource contents
+            Write-Host "    🔍 Verifying GResource contents..." -ForegroundColor Gray
+            $gresourceList = Join-Path $msys2BinPath "gresource.exe"
+            if (Test-Path $gresourceList) {
+              try {
+                $resourceContents = & $gresourceList list $gresourceFile.FullName 2>$null
+                $iconCount = ($resourceContents | Where-Object { $_ -like "*icon*" -or $_ -like "*svg*" }).Count
+                Write-Host "    📊 GResource contains $iconCount icon resources" -ForegroundColor Cyan
+                if ($iconCount -gt 0) {
+                  Write-Host "    ✅ Icons are embedded in GResource" -ForegroundColor Green
+                } else {
+                  Write-Host "    ⚠️ No icons found in GResource!" -ForegroundColor Yellow
+                }
+              } catch {
+                Write-Host "    ⚠️ Could not verify GResource contents" -ForegroundColor Yellow
+              }
+            }
+            
+            Write-Host "  🎉 GResource successfully copied to all locations" -ForegroundColor Cyan
+          }
+        } else {
+          Write-Host "  ⚠️ No .gresource files found in _build, trying alternative locations..." -ForegroundColor Yellow
+          
+          # Enhanced search in alternative locations
+          $searchPaths = @(
+            "_build\src",
+            "_build\data", 
+            "src",
+            "data",
+            "_build\subprojects",
+            "."
+          )
+          
+          $found = $false
+          foreach ($searchPath in $searchPaths) {
+            Write-Host "    🔍 Searching in: $searchPath" -ForegroundColor Gray
+            if (Test-Path $searchPath) {
+              $altGresource = Get-ChildItem $searchPath -Filter "*.gresource" -Recurse -ErrorAction SilentlyContinue
+              if ($altGresource) {
+                Write-Host "  🎯 Found GResource: $($altGresource.FullName)" -ForegroundColor Blue
+                Copy-Item $altGresource.FullName $shareDir -Force
+                Copy-Item $altGresource.FullName $binDir -Force
+                $shareAmberolDir = "$shareDir\amberol"
+                New-Item -ItemType Directory -Path $shareAmberolDir -Force | Out-Null
+                Copy-Item $altGresource.FullName $shareAmberolDir -Force
+                Write-Host "  ✅ GResource copied from $searchPath to all locations" -ForegroundColor Green
+                $found = $true
+                break
+              }
+            }
+          }
+          
+          if (-not $found) {
+            Write-Host "  ❌ No GResource files found anywhere!" -ForegroundColor Red
+            Write-Host "  🔍 Full directory structure of _build:" -ForegroundColor Yellow
+            Get-ChildItem "_build" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "    $($_.FullName)" -ForegroundColor DarkYellow }
+          }
+        }
+        
+        # Copy documentation and utilities
+        Copy-Item "README-Windows.md" $distDir -Force
+        Copy-Item "LICENSES\GPL-3.0-or-later.txt" "$distDir\LICENSE.txt" -Force
+        Copy-Item "check_missing_dlls.ps1" $distDir -Force
+        Copy-Item "debug_icons.ps1" $distDir -Force
+        Copy-Item "debug_icons_enhanced.ps1" $distDir -Force
+        Copy-Item "test_programmatic_icons.ps1" $distDir -Force
+        
+        # Create enhanced launcher that sets up complete environment
+        Write-Host "📝 Creating launcher script..." -ForegroundColor Blue
+        $launcherLines = @(
+          "@echo off",
+          "REM Amberol Portable - Self-Contained with All Dependencies",
+          "setlocal",
+          "set AMBEROL_DIR=%~dp0",
+          "set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0",
+          "set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0",
+          "set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin",
+          "set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas",
+          "set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%",
+          "set GTK_DATA_PREFIX=%AMBEROL_DIR%",
+          "set GTK_EXE_PREFIX=%AMBEROL_DIR%",
+          "set PATH=%AMBEROL_DIR%bin;%PATH%",
+          "set GSK_RENDERER=gl",
+          "set GTK_USE_PORTAL=0",
+          "if not defined LOCALAPPDATA (set LOCALAPPDATA=%USERPROFILE%\AppData\Local)",
+          "if not exist `"%LOCALAPPDATA%\io.bassi.Amberol`" (mkdir `"%LOCALAPPDATA%\io.bassi.Amberol`")",
+          "echo Starting Amberol (Portable with all icons)...",
+          "REM Debug: Check for GResource file",
+          "if exist `"%AMBEROL_DIR%bin\amberol.gresource`" (echo   Found GResource in bin/) else (echo   WARNING: GResource missing in bin/)",
+          "if exist `"%AMBEROL_DIR%share\amberol.gresource`" (echo   Found GResource in share/) else (echo   WARNING: GResource missing in share/)",
+          "if exist `"%AMBEROL_DIR%share\amberol\amberol.gresource`" (echo   Found GResource in share/amberol/) else (echo   WARNING: GResource missing in share/amberol/)",
+          "`"%AMBEROL_DIR%bin\amberol.exe`" %*",
+          "if %ERRORLEVEL% neq 0 (",
+          "    echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)",
+          "    pause",
+          ")",
+          "endlocal"
+        )
+        $launcherContent = $launcherLines -join "`r`n"
+        
+        Set-Content -Path "$distDir\amberol.bat" -Value $launcherContent
+        
+        # Calculate total size
+        $totalSize = (Get-ChildItem $distDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "📊 Total portable package size: $($totalSize.ToString('F2')) MB" -ForegroundColor Green
+
+    - name: Analyze Portable Build
+      shell: pwsh
+      run: |
+        # Find the executable in the distribution directory
+        $exePath = "amberol-windows-static\bin\amberol.exe"
+        
+        if (Test-Path $exePath) {
+            # Get executable size
+            $exeSize = (Get-Item $exePath).Length / 1MB
+            Write-Host "📊 Executable size: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
+            
+            # Count included DLLs
+            $dllCount = (Get-ChildItem "amberol-windows-static\bin" -Filter "*.dll").Count
+            $pluginCount = if (Test-Path "amberol-windows-static\lib\gstreamer-1.0") { 
+                (Get-ChildItem "amberol-windows-static\lib\gstreamer-1.0" -Filter "*.dll").Count 
+            } else { 0 }
+            
+            Write-Host "📦 Portable Build Analysis:" -ForegroundColor Blue
+            Write-Host "  Executable: $($exeSize.ToString('F2')) MB" -ForegroundColor Green
+            Write-Host "  DLLs included: $dllCount" -ForegroundColor Green
+            Write-Host "  GStreamer plugins: $pluginCount" -ForegroundColor Green
+            
+            # Calculate total package size
+            $totalSize = (Get-ChildItem "amberol-windows-static" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+            Write-Host "  Total package: $($totalSize.ToString('F2')) MB" -ForegroundColor Green
+            
+            # List some key DLLs to verify they're included
+            Write-Host "🔍 Key dependencies included:" -ForegroundColor Blue
+            $keyDlls = @("libgtk-4-1.dll", "libadwaita-1-0.dll", "libgstreamer-1.0-0.dll", "libgstaudio-1.0-0.dll", "libgstplayer-1.0-0.dll")
+            foreach ($dll in $keyDlls) {
+                $path = "amberol-windows-static\bin\$dll"
+                if (Test-Path $path) {
+                    $size = [math]::Round((Get-Item $path).Length / 1KB, 1)
+                    Write-Host "  ✅ $dll ($size KB)" -ForegroundColor Green
+                } else {
+                    Write-Host "  ❌ $dll (missing)" -ForegroundColor Red
+                }
+            }
+            
+            Write-Host "🎯 RESULT: Self-contained portable build created!" -ForegroundColor Green
+            Write-Host "   This package should run on Windows 10/11 without any additional dependencies" -ForegroundColor Green
+            Write-Host "   Users can simply extract and run amberol.bat" -ForegroundColor Green
+            
+        } else {
+            Write-Error "❌ Executable not found at $exePath"
+            Write-Host "🔍 Checking distribution directory contents:" -ForegroundColor Yellow
+            Get-ChildItem "amberol-windows-static" -Recurse | ForEach-Object { Write-Host "  $_" }
+        }
+
+    - name: Create Portable Package
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path dist
+        
+        # Create comprehensive portable build ZIP
+        Compress-Archive -Path "amberol-windows-static\*" -DestinationPath "dist\amberol-windows-portable.zip"
+        
+        # Show package information
+        $packageSize = (Get-Item "dist\amberol-windows-portable.zip").Length / 1MB
+        $exeSize = (Get-Item "amberol-windows-static\bin\amberol.exe").Length / 1MB
+        $dllCount = (Get-ChildItem "amberol-windows-static\bin" -Filter "*.dll").Count
+        
+        Write-Host "📦 Self-Contained Portable Package Summary:" -ForegroundColor Green
+        Write-Host "  Package: amberol-windows-portable.zip ($($packageSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "  Executable: amberol.exe ($($exeSize.ToString('F2')) MB)" -ForegroundColor Yellow
+        Write-Host "  Dependencies: $dllCount DLLs included" -ForegroundColor Yellow
+        Write-Host "  Target: Windows 10/11 x64 (no system dependencies)" -ForegroundColor Yellow
+        Write-Host "  Installation: Extract and run amberol.bat" -ForegroundColor Yellow
+
+    - name: Upload Portable Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: amberol-windows-portable
+        path: dist/

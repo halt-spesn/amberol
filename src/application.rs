@@ -9,7 +9,7 @@ use ashpd::{desktop::background::Background, WindowIdentifier};
 use async_channel::Receiver;
 use glib::clone;
 use gtk::{gio, glib, prelude::*};
-use log::{debug, warn};
+use log::{debug, info, warn, error};
 
 use crate::{
     audio::AudioPlayer,
@@ -17,6 +17,7 @@ use crate::{
     i18n::i18n,
     utils,
     window::Window,
+    system_tray::SystemTray,
 };
 
 pub enum ApplicationAction {
@@ -30,8 +31,10 @@ mod imp {
     pub struct Application {
         pub player: Rc<AudioPlayer>,
         pub receiver: RefCell<Option<Receiver<ApplicationAction>>>,
-        pub background_hold: RefCell<Option<ApplicationHoldGuard>>,
+        pub background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
         pub settings: gio::Settings,
+        #[cfg(target_os = "windows")]
+        pub system_tray: RefCell<Option<SystemTray>>,
     }
 
     #[glib::object_subclass]
@@ -44,63 +47,141 @@ mod imp {
             let (sender, r) = async_channel::unbounded();
             let receiver = RefCell::new(Some(r));
 
+            // Try to create settings with fallback for schema ID issues
+            let settings = Self::create_settings_with_fallback();
+            
             Self {
                 player: AudioPlayer::new(sender),
                 receiver,
                 background_hold: RefCell::default(),
-                settings: utils::settings_manager(),
+                settings,
+                #[cfg(target_os = "windows")]
+                system_tray: RefCell::new(None),
             }
+        }
+    }
+    
+    impl Application {
+        fn create_settings_with_fallback() -> gio::Settings {
+            use gio::prelude::*;
+            
+            // Check if the schema exists before trying to create Settings
+            let schema_source = gio::SettingsSchemaSource::default().unwrap();
+            
+            // First try the configured APPLICATION_ID
+            if let Some(_schema) = schema_source.lookup(APPLICATION_ID, true) {
+                debug!("Successfully found settings schema: {}", APPLICATION_ID);
+                return gio::Settings::new(APPLICATION_ID);
+            }
+            
+            warn!("Schema '{}' not found", APPLICATION_ID);
+            
+            // If APPLICATION_ID is a development schema, try the release version
+            if APPLICATION_ID.ends_with(".Devel") {
+                let release_id = APPLICATION_ID.replace(".Devel", "");
+                warn!("Trying release schema '{}'", release_id);
+                
+                if let Some(_schema) = schema_source.lookup(&release_id, true) {
+                    info!("Successfully found release schema: {}", release_id);
+                    return gio::Settings::new(&release_id);
+                } else {
+                    error!("Release schema '{}' also not found", release_id);
+                }
+            }
+            
+            // List available schemas for debugging
+            error!("Available schemas:");
+            let (non_relocatable, relocatable) = schema_source.list_schemas(true);
+            for schema in non_relocatable.iter().chain(relocatable.iter()) {
+                if schema.contains("Amberol") || schema.contains("bassi") {
+                    error!("  - {}", schema);
+                }
+            }
+            
+            error!("Cannot initialize application - no compatible settings schema found");
+            error!("This is likely a packaging issue - GSettings schemas not properly installed");
+            error!("Expected schema: {} or fallback: {}", APPLICATION_ID, APPLICATION_ID.replace(".Devel", ""));
+            panic!("Cannot initialize application without settings schema");
         }
     }
 
     impl ObjectImpl for Application {
         fn constructed(&self) {
             self.parent_constructed();
-
             let obj = self.obj();
-            obj.setup_channel();
             obj.setup_gactions();
-            obj.setup_settings();
-
-            obj.set_accels_for_action("app.quit", &["<primary>q"]);
-
-            obj.set_accels_for_action("queue.add-song", &["<primary>s"]);
-            obj.set_accels_for_action("queue.add-folder", &["<primary>a"]);
-            obj.set_accels_for_action("queue.clear", &["<primary>L"]);
-            obj.set_accels_for_action("queue.toggle", &["F9"]);
-            obj.set_accels_for_action("queue.search", &["<primary>F"]);
-            obj.set_accels_for_action("queue.shuffle", &["<primary>r"]);
-
-            obj.set_accels_for_action("win.seek-backwards", &["<primary>Left"]);
-            obj.set_accels_for_action("win.seek-forward", &["<primary>Right"]);
-            obj.set_accels_for_action("win.previous", &["<primary>b"]);
-            obj.set_accels_for_action("win.next", &["<primary>n"]);
-            obj.set_accels_for_action("win.play", &["<primary>p"]);
-            obj.set_accels_for_action("win.copy", &["<primary>c"]);
+            obj.set_resource_base_path(Some("/io/bassi/Amberol/"));
         }
     }
 
     impl ApplicationImpl for Application {
-        fn startup(&self) {
-            self.parent_startup();
-
-            gtk::Window::set_default_icon_name(APPLICATION_ID);
-        }
-
         fn activate(&self) {
-            debug!("Application::activate");
-
-            self.obj().present_main_window();
-        }
-
-        fn open(&self, files: &[gio::File], _hint: &str) {
-            debug!("Application::open");
-
+            debug!("Application<activate>");
             let application = self.obj();
             application.present_main_window();
-            if let Some(window) = application.active_window() {
-                window.downcast_ref::<Window>().unwrap().open_files(files);
+        }
+
+        fn startup(&self) {
+            debug!("Application<startup>");
+            self.parent_startup();
+            let application = self.obj();
+
+            // Set up system tray on Windows
+            #[cfg(target_os = "windows")]
+            {
+                info!("🔧 Setting up Windows system tray");
+                match SystemTray::new() {
+                    Ok(tray) => {
+                        info!("✅ System tray created successfully");
+                        *self.system_tray.borrow_mut() = Some(tray);
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Failed to create system tray: {}", e);
+                    }
+                }
+                
+                // Set up tray signal monitoring
+                let app_weak = application.downgrade();
+                glib::timeout_add_seconds_local(1, move || {
+                    if let Some(app) = app_weak.upgrade() {
+                        // Check for restore signal file
+                        if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
+                            let signal_file = temp_dir.join("amberol-restore-signal");
+                            if signal_file.exists() {
+                                info!("📱 Detected tray restore signal, presenting window");
+                                app.present_main_window();
+                                // Remove the signal file
+                                let _ = std::fs::remove_file(&signal_file);
+                            }
+                        }
+                        glib::ControlFlow::Continue
+                    } else {
+                        glib::ControlFlow::Break
+                    }
+                });
+                info!("✅ Tray signal monitoring started");
             }
+
+            // Set up CSS
+            // utils::load_css(); // This function doesn't exist, CSS is loaded by the window
+
+            // Handle application action receiver
+            let receiver = self.receiver.take().unwrap();
+            glib::spawn_future_local(clone!(@weak application => async move {
+                while let Ok(action) = receiver.recv().await {
+                    match action {
+                        ApplicationAction::Present => application.present_main_window(),
+                    }
+                }
+            }));
+            
+            // Apply global programmatic icon fallbacks after a short delay
+            // to ensure all widgets are properly initialized
+            glib::timeout_add_seconds_local(2, clone!(@weak application => @default-return glib::ControlFlow::Break, move || {
+                use crate::icon_renderer::IconRenderer;
+                IconRenderer::apply_global_icon_fallbacks(application.upcast_ref());
+                glib::ControlFlow::Break // Run only once
+            }));
         }
     }
 
@@ -110,67 +191,19 @@ mod imp {
 
 glib::wrapper! {
     pub struct Application(ObjectSubclass<imp::Application>)
-        @extends gio::Application, gtk::Application, adw::Application,
-        @implements gio::ActionGroup, gio::ActionMap;
-}
-
-impl Default for Application {
-    fn default() -> Self {
-        glib::Object::builder::<Application>()
-            .property("application-id", APPLICATION_ID)
-            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
-            .property("resource-base-path", "/io/bassi/Amberol")
-            .build()
-    }
+        @extends gio::Application, gtk::Application, adw::Application;
 }
 
 impl Application {
     pub fn new() -> Self {
-        Self::default()
+        glib::Object::builder()
+            .property("application-id", APPLICATION_ID)
+            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
+            .build()
     }
 
     pub fn player(&self) -> Rc<AudioPlayer> {
         self.imp().player.clone()
-    }
-
-    fn setup_settings(&self) {
-        self.imp().settings.connect_changed(
-            Some("background-play"),
-            clone!(@weak self as this => move |settings, _| {
-                let background_play = settings.boolean("background-play");
-                debug!("GSettings:background-play: {background_play}");
-                if background_play {
-                    this.request_background();
-                } else {
-                    debug!("Dropping background hold");
-                    this.imp().background_hold.replace(None);
-                }
-            }),
-        );
-
-        let _dummy = self.imp().settings.boolean("background-play");
-    }
-
-    fn setup_channel(&self) {
-        let receiver = self.imp().receiver.borrow_mut().take().unwrap();
-        glib::MainContext::default().spawn_local(clone!(@strong self as this => async move {
-            use futures::prelude::*;
-
-            let mut receiver = std::pin::pin!(receiver);
-
-            while let Some(action) = receiver.next().await {
-                this.process_action(action);
-            }
-        }));
-    }
-
-    fn process_action(&self, action: ApplicationAction) -> glib::ControlFlow {
-        match action {
-            ApplicationAction::Present => self.present_main_window(),
-            // _ => debug!("Received action {:?}", action),
-        }
-
-        glib::ControlFlow::Continue
     }
 
     fn present_main_window(&self) {
@@ -184,38 +217,60 @@ impl Application {
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         self.request_background();
 
+        #[cfg(target_os = "windows")]
+        self.request_background_windows();
+
         window.present();
     }
 
     fn setup_gactions(&self) {
-        self.add_action_entries([
-            gio::ActionEntry::builder("quit")
-                .activate(|app: &Application, _, _| {
-                    app.quit();
-                })
-                .build(),
-            gio::ActionEntry::builder("about")
-                .activate(|app: &Application, _, _| {
-                    app.show_about();
-                })
-                .build(),
-        ]);
+        // Create and add simple actions using the underlying gio::Application
+        let app = self.upcast_ref::<gio::Application>();
+        
+        let quit_action = gio::SimpleAction::new("quit", None);
+        quit_action.connect_activate(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_, _| {
+                this.quit();
+            }
+        ));
+        app.add_action(&quit_action);
+
+        let about_action = gio::SimpleAction::new("about", None);
+        about_action.connect_activate(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_, _| {
+                this.show_about();
+            }
+        ));
+        app.add_action(&about_action);
 
         let background_play = self.imp().settings.boolean("background-play");
-        self.add_action_entries([gio::ActionEntry::builder("background-play")
-            .state(background_play.to_variant())
-            .activate(|this: &Application, action, _| {
+        let background_play_action = gio::SimpleAction::new_stateful(
+            "background-play",
+            None,
+            &background_play.to_variant(),
+        );
+        background_play_action.connect_activate(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |action, _| {
                 let state = action.state().unwrap();
-                let action_state: bool = state.get().unwrap();
-                let background_play = !action_state;
-                action.set_state(&background_play.to_variant());
+                let background_play = state.get::<bool>().unwrap();
+                let new_state = !background_play;
+                action.set_state(&new_state.to_variant());
+                this.imp().settings.set_boolean("background-play", new_state).unwrap();
 
-                this.imp()
-                    .settings
-                    .set_boolean("background-play", background_play)
-                    .expect("Unable to store background-play setting");
-            })
-            .build()]);
+                if new_state {
+                    this.imp().background_hold.replace(Some(this.hold()));
+                } else {
+                    this.imp().background_hold.replace(None);
+                }
+            }
+        ));
+        app.add_action(&background_play_action);
     }
 
     fn show_about(&self) {
@@ -274,6 +329,18 @@ impl Application {
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+    #[cfg(target_os = "windows")]
+    fn request_background_windows(&self) {
+        let background_play = self.imp().settings.boolean("background-play");
+        if background_play {
+            // On Windows, we can use the Power Management API to prevent sleep
+            // This is a simplified approach - in a real implementation you might
+            // want to use SetThreadExecutionState or other Windows APIs
+            debug!("Background play enabled on Windows");
+            self.imp().background_hold.replace(Some(self.hold()));
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "windows")))]
     fn request_background(&self) {}
 }
