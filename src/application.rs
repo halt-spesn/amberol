@@ -175,7 +175,7 @@ mod imp {
                 }
             }));
             
-            // Apply global programmatic icon fallbacks after a short delay
+            // Replace all asset-based icons with programmatic rendering after a short delay
             // to ensure all widgets are properly initialized
             glib::timeout_add_seconds_local(2, clone!(@weak application => @default-return glib::ControlFlow::Break, move || {
                 use crate::icon_renderer::IconRenderer;

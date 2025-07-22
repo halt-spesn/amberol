@@ -168,7 +168,8 @@ impl PlaybackControl {
             warn!("     Fallback will be used (may show as missing icon)");
         }
         
-        repeat_button.set_icon_name(icon_name);
+        // Use programmatic icon exclusively
+        IconRenderer::set_button_icon_programmatic(&repeat_button, icon_name);
         repeat_button.set_tooltip_text(Some(&tooltip));
         
         // Additional debugging: check what icon was actually set

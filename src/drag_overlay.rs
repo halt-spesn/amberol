@@ -3,6 +3,8 @@
 
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
+use crate::icon_renderer::IconRenderer;
+
 mod imp {
     use std::cell::RefCell;
 
@@ -77,7 +79,7 @@ mod imp {
                 .set_transition_type(gtk::RevealerTransitionType::Crossfade);
             self.revealer.set_reveal_child(false);
 
-            self.status.set_icon_name(Some("folder-music-symbolic"));
+            IconRenderer::set_status_page_icon_programmatic(&self.status, "folder-music-symbolic");
             self.status.add_css_class("drag-overlay-status-page");
 
             self.revealer.set_child(Some(&self.status));

@@ -1172,8 +1172,8 @@ impl Window {
                 "media-playback-start-symbolic"
             };
             
-            // Try programmatic fallback for play/pause icons
-            IconRenderer::set_button_icon_with_fallback(&play_button, icon_name);
+            // Use programmatic icons exclusively
+            IconRenderer::set_button_icon_programmatic(&play_button, icon_name);
         }
     }
 

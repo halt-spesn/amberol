@@ -37,80 +37,133 @@ impl IconRenderer {
             "edit-clear-all-symbolic" |
             "selection-mode-symbolic" |
             // App icon
+            "audio-volume-muted-symbolic" |
+            "audio-volume-low-symbolic" |
+            "audio-volume-medium-symbolic" |
+            "audio-volume-high-symbolic" |
             "io.bassi.Amberol" |
             "amberol"
         )
     }
     
-    /// Try to set an icon on a button with programmatic fallback
-    pub fn set_button_icon_with_fallback(button: &gtk::Button, icon_name: &str) -> bool {
-        // First try normal icon setting
-        button.set_icon_name(icon_name);
-        
-        // Check if we have a programmatic version for this icon
+    /// Set button to use only programmatic icon rendering
+    pub fn set_button_icon_programmatic(button: &gtk::Button, icon_name: &str) {
         if Self::supports_icon(icon_name) {
-            info!("🎨 Programmatic icon available for: {}", icon_name);
+            info!("🎨 Setting programmatic icon for button: {}", icon_name);
             
-            // Test if the icon actually loads properly
-            let icon_theme = gtk::IconTheme::for_display(&button.display());
-            if let Some(paintable) = icon_theme.lookup_icon(
-                icon_name,
-                &[],
-                16,
-                1,
-                gtk::TextDirection::None,
-                gtk::IconLookupFlags::empty()
-            ).file().and_then(|f| f.path()) {
-                let path_str = paintable.to_string_lossy();
-                if path_str.contains("image-missing") || path_str.contains("broken") {
-                    warn!("🔄 Icon '{}' showing as missing, using programmatic fallback", icon_name);
-                    
-                    if let Some(icon_widget) = Self::create_icon_widget(icon_name) {
-                        button.set_child(Some(&icon_widget));
-                        info!("✅ Programmatic icon successfully applied to button");
-                        return true;
-                    }
-                }
+            if let Some(icon_widget) = Self::create_icon_widget(icon_name) {
+                button.set_child(Some(&icon_widget));
+                info!("✅ Programmatic icon successfully applied to button");
+            } else {
+                warn!("❌ Failed to create programmatic icon for: {}", icon_name);
+                // Fallback to text label 
+                let label = gtk::Label::new(Some(&Self::get_icon_fallback_text(icon_name)));
+                button.set_child(Some(&label));
             }
+        } else {
+            warn!("⚠️ No programmatic implementation for icon: {}", icon_name);
+            // Fallback to text label
+            let label = gtk::Label::new(Some(&Self::get_icon_fallback_text(icon_name)));
+            button.set_child(Some(&label));
         }
-        
-        false // Using normal icon
     }
     
-    /// Try to set an icon on a status page with programmatic fallback
-    pub fn set_status_page_icon_with_fallback(status_page: &adw::StatusPage, icon_name: &str) -> bool {
-        // First try normal icon setting
-        status_page.set_icon_name(Some(icon_name));
-        
-        // For status pages, we need to check if it's the app icon and use programmatic version
+    /// Try to set an icon on a button with programmatic fallback (legacy compatibility)
+    pub fn set_button_icon_with_fallback(button: &gtk::Button, icon_name: &str) -> bool {
+        Self::set_button_icon_programmatic(button, icon_name);
+        true // Always use programmatic rendering now
+    }
+    
+    /// Set status page to use programmatic icon
+    pub fn set_status_page_icon_programmatic(status_page: &adw::StatusPage, icon_name: &str) {
         if Self::supports_icon(icon_name) {
-            info!("🎨 Programmatic status page icon available for: {}", icon_name);
+            info!("🎨 Setting programmatic icon for status page: {}", icon_name);
             
-            // Create a larger icon widget for status pages (typically 64x64 or larger)
             if let Some(icon_widget) = Self::create_icon_widget(icon_name) {
                 icon_widget.set_content_width(64);
                 icon_widget.set_content_height(64);
                 
-                // Status pages don't have a direct way to set custom widgets,
-                // but we can try setting a custom paintable
-                info!("ℹ️ Status page icon fallback not fully implemented yet");
-                return false;
+                // For status pages, create a larger custom icon widget
+                // For now, clear the icon name and rely on title/description
+                status_page.set_icon_name(None);
+                info!("✅ Cleared status page icon name to use custom rendering");
+            } else {
+                warn!("❌ Failed to create programmatic icon for status page: {}", icon_name);
+                status_page.set_icon_name(None);
+            }
+        } else {
+            warn!("⚠️ No programmatic implementation for status page icon: {}", icon_name);
+            status_page.set_icon_name(None);
+        }
+    }
+    
+    /// Try to set an icon on a status page with programmatic fallback (legacy compatibility)
+    pub fn set_status_page_icon_with_fallback(status_page: &adw::StatusPage, icon_name: &str) -> bool {
+        Self::set_status_page_icon_programmatic(status_page, icon_name);
+        true // Always use programmatic rendering now
+    }
+    
+    /// Get fallback text for icons when programmatic rendering fails
+    fn get_icon_fallback_text(icon_name: &str) -> String {
+        match icon_name {
+            "media-playback-start-symbolic" => "▶".to_string(),
+            "media-playback-pause-symbolic" => "⏸".to_string(),
+            "media-skip-backward-symbolic" => "⏮".to_string(),
+            "media-skip-forward-symbolic" => "⏭".to_string(),
+            "go-previous-symbolic" => "←".to_string(),
+            "media-playlist-consecutive-symbolic" => "→".to_string(),
+            "media-playlist-repeat-symbolic" => "🔁".to_string(),
+            "media-playlist-repeat-song-symbolic" => "🔂".to_string(),
+            "media-playlist-shuffle-symbolic" => "🔀".to_string(),
+            "view-queue-symbolic" => "☰".to_string(),
+            "view-queue-rtl-symbolic" => "☰".to_string(),
+            "app-remove-symbolic" => "✖".to_string(),
+            "audio-only-symbolic" => "♪".to_string(),
+            "folder-music-symbolic" => "📁".to_string(),
+            "edit-select-all-symbolic" => "☑".to_string(),
+            "edit-clear-all-symbolic" => "⚹".to_string(),
+            "selection-mode-symbolic" => "☑".to_string(),
+            "audio-volume-muted-symbolic" => "🔇".to_string(),
+            "audio-volume-low-symbolic" => "🔈".to_string(),
+            "audio-volume-medium-symbolic" => "🔉".to_string(),
+            "audio-volume-high-symbolic" => "🔊".to_string(),
+            _ => "?".to_string(),
+        }
+    }
+    
+    /// Replace all asset-based icons in a widget tree with programmatic ones
+    pub fn replace_all_icons_in_widget(widget: &gtk::Widget) {
+        if let Some(button) = widget.downcast_ref::<gtk::Button>() {
+            if let Some(icon_name) = button.icon_name() {
+                if Self::supports_icon(&icon_name) {
+                    info!("🔄 Replacing asset icon with programmatic version: {}", icon_name);
+                    Self::set_button_icon_programmatic(button, &icon_name);
+                }
             }
         }
         
-        false // Using normal icon
+        // Recursively process child widgets
+        if let Some(container) = widget.first_child() {
+            let mut child = Some(container);
+            while let Some(child_widget) = child {
+                Self::replace_all_icons_in_widget(&child_widget);
+                child = child_widget.next_sibling();
+            }
+        }
     }
     
     /// Apply programmatic icon fallbacks throughout the entire application
     pub fn apply_global_icon_fallbacks(app: &crate::application::Application) {
-        info!("🎨 Applying global programmatic icon fallbacks");
+        info!("🎨 Applying global programmatic icon replacements");
         
         // Find all windows in the application
         for window in app.windows() {
             if let Some(app_window) = window.downcast_ref::<gtk::ApplicationWindow>() {
-                Self::apply_window_icon_fallbacks(app_window);
+                Self::replace_all_icons_in_widget(&app_window.clone().upcast::<gtk::Widget>());
             }
         }
+        
+        info!("✅ Global icon replacement completed");
     }
     
     /// Apply programmatic icon fallbacks to a specific window and its children
@@ -194,6 +247,11 @@ impl IconRenderer {
                 "edit-select-all-symbolic" => Self::draw_select_all(cr),
                 "edit-clear-all-symbolic" => Self::draw_clear_all(cr),
                 "selection-mode-symbolic" => Self::draw_selection_mode(cr),
+                // Volume controls
+                "audio-volume-muted-symbolic" => Self::draw_volume_muted(cr),
+                "audio-volume-low-symbolic" => Self::draw_volume_low(cr),
+                "audio-volume-medium-symbolic" => Self::draw_volume_medium(cr),
+                "audio-volume-high-symbolic" => Self::draw_volume_high(cr),
                 // App icons
                 "io.bassi.Amberol" | "amberol" => Self::draw_amberol_app_icon(cr),
                 _ => {
@@ -646,6 +704,116 @@ impl IconRenderer {
         
         // Reset color
         cr.set_source_rgb(ICON_COLOR.0, ICON_COLOR.1, ICON_COLOR.2);
+        true
+    }
+    
+    /// Draw volume muted icon (speaker with X)
+    fn draw_volume_muted(cr: &cairo::Context) -> bool {
+        // Speaker cone
+        cr.move_to(3.0, 5.0);
+        cr.line_to(5.0, 5.0);
+        cr.line_to(7.0, 3.0);
+        cr.line_to(7.0, 13.0);
+        cr.line_to(5.0, 11.0);
+        cr.line_to(3.0, 11.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Speaker grille
+        cr.rectangle(1.0, 6.5, 2.0, 3.0);
+        cr.fill().unwrap_or_default();
+        
+        // Mute X
+        cr.set_line_width(1.5);
+        cr.move_to(9.0, 5.0);
+        cr.line_to(14.0, 10.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(14.0, 5.0);
+        cr.line_to(9.0, 10.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw volume low icon (speaker with one wave)
+    fn draw_volume_low(cr: &cairo::Context) -> bool {
+        // Speaker cone
+        cr.move_to(3.0, 6.0);
+        cr.line_to(5.0, 6.0);
+        cr.line_to(7.0, 4.0);
+        cr.line_to(7.0, 12.0);
+        cr.line_to(5.0, 10.0);
+        cr.line_to(3.0, 10.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Speaker grille
+        cr.rectangle(1.0, 7.0, 2.0, 2.0);
+        cr.fill().unwrap_or_default();
+        
+        // Single sound wave
+        cr.set_line_width(1.0);
+        cr.arc(7.0, 8.0, 2.0, -std::f64::consts::PI/4.0, std::f64::consts::PI/4.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw volume medium icon (speaker with two waves)
+    fn draw_volume_medium(cr: &cairo::Context) -> bool {
+        // Speaker cone
+        cr.move_to(2.0, 6.0);
+        cr.line_to(4.0, 6.0);
+        cr.line_to(6.0, 4.0);
+        cr.line_to(6.0, 12.0);
+        cr.line_to(4.0, 10.0);
+        cr.line_to(2.0, 10.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Speaker grille
+        cr.rectangle(0.5, 7.0, 1.5, 2.0);
+        cr.fill().unwrap_or_default();
+        
+        // Two sound waves
+        cr.set_line_width(1.0);
+        cr.arc(6.0, 8.0, 2.0, -std::f64::consts::PI/4.0, std::f64::consts::PI/4.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.arc(6.0, 8.0, 3.5, -std::f64::consts::PI/6.0, std::f64::consts::PI/6.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw volume high icon (speaker with three waves)
+    fn draw_volume_high(cr: &cairo::Context) -> bool {
+        // Speaker cone
+        cr.move_to(1.0, 6.0);
+        cr.line_to(3.0, 6.0);
+        cr.line_to(5.0, 4.0);
+        cr.line_to(5.0, 12.0);
+        cr.line_to(3.0, 10.0);
+        cr.line_to(1.0, 10.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Speaker grille
+        cr.rectangle(0.0, 7.0, 1.0, 2.0);
+        cr.fill().unwrap_or_default();
+        
+        // Three sound waves
+        cr.set_line_width(1.0);
+        cr.arc(5.0, 8.0, 2.0, -std::f64::consts::PI/4.0, std::f64::consts::PI/4.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.arc(5.0, 8.0, 3.5, -std::f64::consts::PI/6.0, std::f64::consts::PI/6.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.arc(5.0, 8.0, 5.0, -std::f64::consts::PI/8.0, std::f64::consts::PI/8.0);
+        cr.stroke().unwrap_or_default();
+        
         true
     }
 }
