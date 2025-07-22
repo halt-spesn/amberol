@@ -458,43 +458,31 @@ jobs:
           Copy-Item $adwaitaThemes "$shareDir" -Recurse -Force
           Write-Host "✅ Libadwaita themes copied" -ForegroundColor Green
           
-          # Create missing devel-symbolic.svg if needed
-          $stylesDir = "$shareDir\libadwaita-1\styles"
-          $assetsDir = "$stylesDir\assets"
-          if (Test-Path $stylesDir) {
-            if (-not (Test-Path $assetsDir)) {
-              New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
-            }
-            
-            $develIcon = "$assetsDir\devel-symbolic.svg"
-            if (-not (Test-Path $develIcon)) {
-              # Create a proper Adwaita-style devel-symbolic icon
-              $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/></svg>'
-              Set-Content -Path $develIcon -Value $svg -Encoding UTF8
-              Write-Host "  ✅ Created missing devel-symbolic.svg" -ForegroundColor Cyan
-            }
-            
-          # Create missing symbolic icons in icon themes
-          Write-Host "🎨 Creating missing symbolic icons..." -ForegroundColor Blue
+          # Create basic icons for UI controls
+          Write-Host "🎨 Creating essential UI icons..." -ForegroundColor Blue
+          $iconsDir = "$shareDir\icons\Adwaita\scalable\actions"
+          New-Item -ItemType Directory -Path $iconsDir -Force | Out-Null
           
-          # Create basic icon directories  
-          $adwaitaActionsDir = "$shareDir\icons\Adwaita\scalable\actions"
-          New-Item -ItemType Directory -Path $adwaitaActionsDir -Force | Out-Null
+          # Create 8 essential media control icons
+          $iconSvg1 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>'
+          $iconSvg2 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>'
+          $iconSvg3 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>'
+          $iconSvg4 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>'
+          $iconSvg5 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>'
+          $iconSvg6 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>'
+          $iconSvg7 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>'
+          $iconSvg8 = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>'
           
-          # Create essential icons for UI controls
-          $iconCount = 0
+          Set-Content -Path "$iconsDir\media-skip-backward-symbolic.svg" -Value $iconSvg1 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-skip-forward-symbolic.svg" -Value $iconSvg2 -Encoding UTF8  
+          Set-Content -Path "$iconsDir\media-playback-start-symbolic.svg" -Value $iconSvg3 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playback-pause-symbolic.svg" -Value $iconSvg4 -Encoding UTF8
+          Set-Content -Path "$iconsDir\view-queue-symbolic.svg" -Value $iconSvg5 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playlist-shuffle-symbolic.svg" -Value $iconSvg6 -Encoding UTF8
+          Set-Content -Path "$iconsDir\media-playlist-consecutive-symbolic.svg" -Value $iconSvg7 -Encoding UTF8
+          Set-Content -Path "$iconsDir\open-menu-symbolic.svg" -Value $iconSvg8 -Encoding UTF8
           
-          # Media control icons
-          Set-Content -Path "$adwaitaActionsDir\media-skip-backward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\media-skip-forward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\media-playback-start-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\media-playback-pause-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\view-queue-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\media-playlist-shuffle-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\media-playlist-consecutive-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          Set-Content -Path "$adwaitaActionsDir\open-menu-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>' -Encoding UTF8; $iconCount++
-          
-          Write-Host "  ✅ Created $iconCount essential UI icons" -ForegroundColor Cyan
+          Write-Host "  ✅ Created 8 essential UI icons" -ForegroundColor Cyan
         } else {
           Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
         }
