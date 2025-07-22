@@ -127,9 +127,8 @@ impl PlaybackControl {
         let icon_theme = gtk::IconTheme::for_display(&repeat_button.display());
         
         // Debug icon theme information
-        if let Some(theme_name) = icon_theme.theme_name() {
-            info!("  🎨 Current icon theme: {}", theme_name);
-        }
+        let theme_name = icon_theme.theme_name();
+        info!("  🎨 Current icon theme: {}", theme_name);
         let search_paths = icon_theme.search_path();
         info!("  📂 Icon search paths: {} directories", search_paths.len());
         for (i, path) in search_paths.iter().take(3).enumerate() {
@@ -152,21 +151,17 @@ impl PlaybackControl {
             info!("  ✅ Icon '{}' found in theme", icon_name);
             
             // Try to actually load the icon to see if there are issues
-            match icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::FORCE_SVG) {
-                Some(icon_paintable) => {
-                    info!("  🎨 Icon paintable loaded successfully");
-                    // Check if it's actually an SVG
-                    if let Some(file) = icon_paintable.file() {
-                        if let Some(path) = file.path() {
-                            info!("  📁 Icon loaded from: {:?}", path);
-                        } else {
-                            info!("  📦 Icon loaded from GResource");
-                        }
-                    }
+            let icon_paintable = icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::empty());
+            info!("  🎨 Icon paintable loaded successfully");
+            // Check if it's actually an SVG
+            if let Some(file) = icon_paintable.file() {
+                if let Some(path) = file.path() {
+                    info!("  📁 Icon loaded from: {:?}", path);
+                } else {
+                    info!("  📦 Icon loaded from GResource");
                 }
-                None => {
-                    warn!("  ⚠️ Icon found in theme but failed to load paintable!");
-                }
+            } else {
+                info!("  📦 Icon loaded from memory/builtin");
             }
         } else {
             warn!("  ❌ Icon '{}' NOT found in theme!", icon_name);
