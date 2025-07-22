@@ -100,7 +100,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                hinstance.into(),
+                hinstance,
                 None,
             )?;
             
