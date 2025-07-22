@@ -3,6 +3,7 @@
 
 use adw::subclass::prelude::*;
 use gtk::{gio, glib, prelude::*, CompositeTemplate};
+use log::{info, warn};
 
 use crate::{audio::RepeatMode, i18n::i18n, volume_control::VolumeControl};
 
@@ -108,19 +109,37 @@ impl PlaybackControl {
 
     pub fn set_repeat_mode(&self, repeat_mode: RepeatMode) {
         let repeat_button = self.imp().repeat_button.get();
-        match repeat_mode {
+        let (icon_name, tooltip) = match repeat_mode {
             RepeatMode::Consecutive => {
-                repeat_button.set_icon_name("media-playlist-consecutive-symbolic");
-                repeat_button.set_tooltip_text(Some(&i18n("Enable Repeat")));
+                ("media-playlist-consecutive-symbolic", i18n("Enable Repeat"))
             }
             RepeatMode::RepeatAll => {
-                repeat_button.set_icon_name("media-playlist-repeat-symbolic");
-                repeat_button.set_tooltip_text(Some(&i18n("Repeat All Songs")));
+                ("media-playlist-repeat-symbolic", i18n("Repeat All Songs"))
             }
             RepeatMode::RepeatOne => {
-                repeat_button.set_icon_name("media-playlist-repeat-song-symbolic");
-                repeat_button.set_tooltip_text(Some(&i18n("Repeat the Current Song")));
+                ("media-playlist-repeat-song-symbolic", i18n("Repeat the Current Song"))
             }
+        };
+        
+        info!("🎯 Setting repeat button icon: {} (mode: {:?})", icon_name, repeat_mode);
+        
+        // Try to load the icon to verify it exists
+        let icon_theme = gtk::IconTheme::for_display(&repeat_button.display());
+        if icon_theme.has_icon(icon_name) {
+            info!("  ✅ Icon '{}' found in theme", icon_name);
+        } else {
+            warn!("  ❌ Icon '{}' NOT found in theme!", icon_name);
+            warn!("     Fallback will be used (may show as missing icon)");
+        }
+        
+        repeat_button.set_icon_name(icon_name);
+        repeat_button.set_tooltip_text(Some(&tooltip));
+        
+        // Additional debugging: check what icon was actually set
+        if let Some(actual_icon) = repeat_button.icon_name() {
+            info!("  📋 Button now shows icon: {}", actual_icon);
+        } else {
+            warn!("  ⚠️ Button has no icon name set!");
         }
     }
 }

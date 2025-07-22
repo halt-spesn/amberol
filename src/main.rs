@@ -20,6 +20,7 @@ mod waveform_view;
 mod window;
 #[cfg(target_os = "windows")]
 mod windows;
+mod system_tray;
 
 use std::env;
 
@@ -56,6 +57,10 @@ fn main() -> glib::ExitCode {
     setup_windows_audio();
 
     debug!("Loading resources");
+    info!("🎯 Amberol Resource Loading Debug");
+    info!("Application ID: {}", APPLICATION_ID);
+    info!("Profile: {}", PROFILE);
+    info!("Package Data Dir: {}", PKGDATADIR);
     
     // Try multiple locations for the GResource file for portable compatibility
     let mut resource_locations = Vec::new();
@@ -63,6 +68,7 @@ fn main() -> glib::ExitCode {
     // Add portable/relative locations first (for Windows portable builds)
     if let Ok(exe_path) = env::current_exe() {
         let exe_dir = exe_path.parent().unwrap();
+        info!("📁 Executable directory: {:?}", exe_dir);
         
         // Try in the same directory as the executable
         resource_locations.push(exe_dir.join("amberol.gresource"));
@@ -85,19 +91,51 @@ fn main() -> glib::ExitCode {
         }
     }
     
+    info!("🔍 Will try {} resource locations:", resource_locations.len());
+    for (i, location) in resource_locations.iter().enumerate() {
+        info!("  {}. {:?}", i + 1, location);
+    }
+    
     let mut resources = None;
     let mut last_error = None;
     
-    for location in &resource_locations {
-        debug!("Trying to load resources from: {:?}", location);
+    for (i, location) in resource_locations.iter().enumerate() {
+        info!("📍 Attempt {}/{}: {:?}", i + 1, resource_locations.len(), location);
+        
+        // Check if file exists first
+        if location.exists() {
+            info!("  ✅ File exists ({} bytes)", location.metadata().map(|m| m.len()).unwrap_or(0));
+        } else {
+            info!("  ❌ File not found");
+            continue;
+        }
+        
         match gio::Resource::load(location) {
             Ok(res) => {
-                info!("Successfully loaded resources from: {:?}", location);
+                info!("  🎉 Successfully loaded GResource!");
+                
+                // Debug: List some resources to verify icon loading
+                let resource_paths = res.enumerate_children("/io/bassi/Amberol/icons/scalable/actions/", gio::ResourceLookupFlags::NONE);
+                match resource_paths {
+                    Ok(paths) => {
+                        info!("  📋 Found {} icon resources:", paths.len());
+                        for (j, path) in paths.iter().take(5).enumerate() {
+                            info!("    {}. {}", j + 1, path);
+                        }
+                        if paths.len() > 5 {
+                            info!("    ... and {} more", paths.len() - 5);
+                        }
+                    }
+                    Err(e) => {
+                        error!("  ⚠️ Could not enumerate icon resources: {}", e);
+                    }
+                }
+                
                 resources = Some(res);
                 break;
             }
             Err(err) => {
-                debug!("Failed to load from {:?}: {}", location, err);
+                error!("  💥 Failed to load GResource: {}", err);
                 last_error = Some(err);
             }
         }

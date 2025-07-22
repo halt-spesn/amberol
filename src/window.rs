@@ -925,6 +925,19 @@ impl Window {
                 .set_int("window-height", height)
                 .expect("Unable to stop window-height");
 
+            // On Windows, minimize to tray instead of closing
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(app) = window.application().and_then(|a| a.downcast::<crate::Application>().ok()) {
+                    if app.imp().system_tray.borrow().is_some() {
+                        use log::info;
+                        info!("📱 Minimizing to system tray instead of closing");
+                        window.set_visible(false);
+                        return glib::Propagation::Stop; // Prevent actual window close
+                    }
+                }
+            }
+
             window.unbind_queue();
             window.unbind_state();
             window.unbind_waveform();

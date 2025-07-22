@@ -96,7 +96,14 @@ Amberol for Windows supports the following audio formats through GStreamer:
 - **File Associations**: Associate audio files with Amberol (optional during installation)
 - **Windows Audio**: Full support for Windows audio subsystem
 - **System Tray**: Minimize to system tray for background playback
+  - Click X button to minimize to tray (doesn't close the app)
+  - Click tray icon to restore window
+  - Music continues playing while minimized
 - **Windows 11 Integration**: Modern context menus and title bar
+- **Built-in Debugging**: Comprehensive diagnostics for troubleshooting
+  - Icon loading verification and resource enumeration
+  - GResource file detection and content analysis
+  - Environment variable checking and recommendations
 
 ## Usage
 

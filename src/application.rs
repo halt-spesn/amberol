@@ -17,6 +17,7 @@ use crate::{
     i18n::i18n,
     utils,
     window::Window,
+    system_tray::SystemTray,
 };
 
 pub enum ApplicationAction {
@@ -32,6 +33,8 @@ mod imp {
         pub receiver: RefCell<Option<Receiver<ApplicationAction>>>,
         pub background_hold: RefCell<Option<gio::ApplicationHoldGuard>>,
         pub settings: gio::Settings,
+        #[cfg(target_os = "windows")]
+        pub system_tray: RefCell<Option<SystemTray>>,
     }
 
     #[glib::object_subclass]
@@ -52,6 +55,8 @@ mod imp {
                 receiver,
                 background_hold: RefCell::default(),
                 settings,
+                #[cfg(target_os = "windows")]
+                system_tray: RefCell::new(None),
             }
         }
     }
@@ -120,6 +125,21 @@ mod imp {
             debug!("Application<startup>");
             self.parent_startup();
             let application = self.obj();
+
+            // Set up system tray on Windows
+            #[cfg(target_os = "windows")]
+            {
+                info!("🔧 Setting up Windows system tray");
+                match SystemTray::new() {
+                    Ok(tray) => {
+                        info!("✅ System tray created successfully");
+                        *self.system_tray.borrow_mut() = Some(tray);
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Failed to create system tray: {}", e);
+                    }
+                }
+            }
 
             // Set up CSS
             // utils::load_css(); // This function doesn't exist, CSS is loaded by the window

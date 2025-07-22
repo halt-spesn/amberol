@@ -42,6 +42,9 @@ REM Enable GTK icon debugging (uncomment for troubleshooting missing icons)
 REM set GTK_DEBUG=icon-theme
 REM set G_MESSAGES_DEBUG=all
 
+REM Enable Amberol debug logging (shows icon loading and tray info)
+set RUST_LOG=amberol=info
+
 REM Set application data directory
 if not defined LOCALAPPDATA (
     set LOCALAPPDATA=%USERPROFILE%\AppData\Local
@@ -87,6 +90,8 @@ REM set GTK_THEME=Default
 
 REM Launch Amberol
 echo Starting Amberol...
+echo   📱 Note: Window will minimize to system tray instead of closing
+echo   🖱️ Click the tray icon to restore the window
 "%AMBEROL_DIR%bin\amberol.exe" %*
 
 REM Check if the application started successfully
