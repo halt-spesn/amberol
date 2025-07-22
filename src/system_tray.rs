@@ -77,7 +77,7 @@ pub mod windows_tray {
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: GetModuleHandleW(None)?,
+                hInstance: GetModuleHandleW(None)?.into(),
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
                 hbrBackground: HBRUSH::default(),
@@ -99,7 +99,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                GetModuleHandleW(None)?,
+                GetModuleHandleW(None)?.into(),
                 None,
             )?;
             
@@ -146,38 +146,33 @@ pub mod windows_tray {
                         WM_LBUTTONUP | WM_RBUTTONUP => {
                             info!("🖱️ Tray icon clicked - will restore window");
                             
-                            // Use the simplest approach: look for any hidden window and show it
+                            // Use the simplest approach: send a custom signal that the app can handle
                             glib::idle_add_once(|| {
-                                // Try to find the Amberol window by looking for any hidden application window
-                                if let Some(display) = gtk::gdk::Display::default() {
-                                    let toplevels = display.list_toplevels();
-                                    for toplevel in toplevels {
-                                        if let Some(window) = toplevel.downcast_ref::<gtk::Window>() {
-                                            // Look for a window that has an application and is not visible
-                                            if window.application().is_some() && !window.is_visible() {
-                                                info!("📱 Restoring hidden application window from tray");
-                                                window.set_visible(true);
-                                                window.present();
-                                                window.activate();
-                                                return;
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Fallback: show any application window
-                                    for toplevel in toplevels {
-                                        if let Some(window) = toplevel.downcast_ref::<gtk::Window>() {
-                                            if window.application().is_some() {
-                                                info!("📱 Showing application window from tray (fallback)");
-                                                window.set_visible(true);
-                                                window.present();
-                                                window.activate();
-                                                return;
-                                            }
-                                        }
+                                info!("📱 Tray clicked - sending restore signal");
+                                
+                                // Send a signal that the application can listen for
+                                // This is the most reliable cross-platform approach
+                                let signal_name = "amberol-restore-from-tray";
+                                
+                                // Try to find any GTK application and trigger an action
+                                if let Some(app) = gtk::gio::Application::default() {
+                                    // Try to activate the application, which should bring it to the front
+                                    app.activate();
+                                    info!("📱 Activated application via GApplication");
+                                } else {
+                                    warn!("⚠️ Could not find GApplication to activate");
+                                }
+                                
+                                // Alternative: Use a simple file-based signal
+                                // This ensures the main application thread can detect the restore request
+                                if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
+                                    let signal_file = temp_dir.join("amberol-restore-signal");
+                                    if let Err(e) = std::fs::write(&signal_file, "restore") {
+                                        warn!("⚠️ Could not write restore signal file: {}", e);
+                                    } else {
+                                        info!("📱 Created restore signal file: {:?}", signal_file);
                                     }
                                 }
-                                warn!("⚠️ Could not find any application windows to restore");
                             });
                         }
                         _ => {}

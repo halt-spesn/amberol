@@ -139,6 +139,27 @@ mod imp {
                         warn!("⚠️ Failed to create system tray: {}", e);
                     }
                 }
+                
+                // Set up tray signal monitoring
+                let app_weak = application.downgrade();
+                glib::timeout_add_seconds_local(1, move || {
+                    if let Some(app) = app_weak.upgrade() {
+                        // Check for restore signal file
+                        if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
+                            let signal_file = temp_dir.join("amberol-restore-signal");
+                            if signal_file.exists() {
+                                info!("📱 Detected tray restore signal, presenting window");
+                                app.present_main_window();
+                                // Remove the signal file
+                                let _ = std::fs::remove_file(&signal_file);
+                            }
+                        }
+                        glib::ControlFlow::Continue
+                    } else {
+                        glib::ControlFlow::Break
+                    }
+                });
+                info!("✅ Tray signal monitoring started");
             }
 
             // Set up CSS
