@@ -458,8 +458,8 @@ jobs:
           Copy-Item $adwaitaThemes "$shareDir" -Recurse -Force
           Write-Host "✅ Libadwaita themes copied" -ForegroundColor Green
           
-          # Create basic icons for UI controls
-          Write-Host "🎨 Creating essential UI icons..." -ForegroundColor Blue
+                  # Create basic icons for UI controls
+        Write-Host "🎨 Creating essential UI icons..." -ForegroundColor Blue
           $iconsDir = "$shareDir\icons\Adwaita\scalable\actions"
           New-Item -ItemType Directory -Path $iconsDir -Force | Out-Null
           
