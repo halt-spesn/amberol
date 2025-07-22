@@ -590,7 +590,6 @@ jobs:
           } else {
             Write-Host "  ⚠️ No icon cache tool found, icons may not be immediately available" -ForegroundColor Yellow
           }
-        }
         } else {
           Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
         }
