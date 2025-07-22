@@ -178,28 +178,42 @@ impl PlaybackControl {
             warn!("  ⚠️ Button has no icon name set!");
         }
         
-        // Try alternative loading method for problematic icons
-        if icon_name == "media-playlist-consecutive-symbolic" {
-            info!("  🔧 Trying alternative loading for consecutive icon...");
+        // Check if the icon is being rendered as "image-missing" fallback
+        let icon_paintable_debug = icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::empty());
+        if let Some(file) = icon_paintable_debug.file() {
+            if let Some(path) = file.path() {
+                let path_str = path.to_string_lossy();
+                if path_str.contains("image-missing") || path_str.contains("broken") {
+                    warn!("  ⚠️ Icon is falling back to 'image-missing' placeholder!");
+                    warn!("     This means the icon exists but cannot be rendered properly");
+                    warn!("     Likely cause: SVG parsing failure or corrupted icon data");
+                } else {
+                    info!("  📁 Icon resolved to: {}", path_str);
+                }
+            }
+        }
+        
+        // Try alternative loading method for problematic icons  
+        if ["media-playlist-consecutive-symbolic", "media-playlist-repeat-symbolic", "media-playlist-shuffle-symbolic"].contains(&icon_name) {
+            info!("  🔧 Testing direct GResource loading for {}...", icon_name);
             
-            // Try loading directly from GResource
-            if let Ok(resource_bytes) = gio::resources_lookup_data(
-                "/io/bassi/Amberol/icons/scalable/actions/media-playlist-consecutive-symbolic.svg",
-                gio::ResourceLookupFlags::NONE
-            ) {
+            let resource_path = format!("/io/bassi/Amberol/icons/scalable/actions/{}.svg", icon_name);
+            if let Ok(resource_bytes) = gio::resources_lookup_data(&resource_path, gio::ResourceLookupFlags::NONE) {
                 info!("  📦 Successfully loaded icon data from GResource ({} bytes)", resource_bytes.len());
                 
                 // Try creating a texture from the SVG data
                 match gtk::gdk::Texture::from_bytes(&resource_bytes) {
                     Ok(_texture) => {
-                        info!("  ✅ SVG data can be parsed as texture");
+                        info!("  ✅ SVG data can be parsed as texture - icon should display correctly");
                     }
                     Err(e) => {
                         warn!("  ❌ Failed to parse SVG as texture: {}", e);
+                        warn!("     This confirms the SVG data cannot be rendered by Windows GTK");
+                        warn!("     The 'image-missing' fallback will be shown instead");
                     }
                 }
             } else {
-                warn!("  ❌ Failed to load icon data from GResource");
+                warn!("  ❌ Failed to load icon data from GResource: {}", resource_path);
             }
         }
         

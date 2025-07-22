@@ -133,15 +133,20 @@ foreach ($Var in $GTKVars) {
 # Icon theme debugging suggestions
 Write-Host ""
 Write-Host "🔧 Troubleshooting Suggestions:" -ForegroundColor Blue
-Write-Host "  1. If only some icons show:" -ForegroundColor Cyan
-Write-Host "     • SVG rendering issue - try: set GSK_RENDERER=cairo" -ForegroundColor Gray
-Write-Host "     • Theme override issue - try: set GTK_THEME=Default" -ForegroundColor Gray
-Write-Host "  2. If no icons show:" -ForegroundColor Cyan  
+Write-Host "  1. If icons show as 'missing image' placeholder:" -ForegroundColor Cyan
+Write-Host "     • SVG parsing failure - icons exist but can't be rendered" -ForegroundColor Gray
+Write-Host "     • Try: set GSK_RENDERER=cairo (software rendering)" -ForegroundColor Gray
+Write-Host "     • Try: set GTK_THEME=Default (remove theme overrides)" -ForegroundColor Gray
+Write-Host "  2. If no icons show at all:" -ForegroundColor Cyan  
 Write-Host "     • GResource not loaded - check file paths above" -ForegroundColor Gray
 Write-Host "     • Missing icon theme - check GTK_DATA_PREFIX" -ForegroundColor Gray
-Write-Host "  3. For detailed debugging:" -ForegroundColor Cyan
+Write-Host "  3. If icons are completely missing:" -ForegroundColor Cyan
+Write-Host "     • Icon names don't match - check aliases in GResource" -ForegroundColor Gray
+Write-Host "     • Wrong icon theme path - verify XDG_DATA_DIRS" -ForegroundColor Gray
+Write-Host "  4. For detailed debugging:" -ForegroundColor Cyan
 Write-Host "     • Enable: set GTK_DEBUG=icon-theme" -ForegroundColor Gray
 Write-Host "     • Enable: set G_MESSAGES_DEBUG=all" -ForegroundColor Gray
+Write-Host "     • Check Amberol logs with: set RUST_LOG=amberol=info" -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "🎵 Run this script whenever icons aren't displaying correctly!" -ForegroundColor Blue
