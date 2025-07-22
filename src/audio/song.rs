@@ -176,8 +176,13 @@ impl SongData {
             _ => None,
         };
 
-        let properties = tagged_file.properties();
-        let duration = properties.duration().as_secs();
+        let duration = if let Some(ref tagged_file) = tagged_file {
+            let properties = tagged_file.properties();
+            properties.duration().as_secs()
+        } else {
+            // Default duration when metadata parsing failed
+            0
+        };
 
         debug!(
             "Song {:?} ('{:?}') loading time: {} ms",
