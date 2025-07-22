@@ -71,13 +71,14 @@ pub mod windows_tray {
             let class_name = windows::core::w!("AmberolTrayClass");
             let window_name = windows::core::w!("AmberolTrayWindow");
             
+            let hinstance = GetModuleHandleW(None)?;
             let wc = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
                 style: CS_HREDRAW | CS_VREDRAW,
                 lpfnWndProc: Some(Self::window_proc),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
-                hInstance: GetModuleHandleW(None)?.into(),
+                hInstance: hinstance,
                 hIcon: HICON::default(),
                 hCursor: LoadCursorW(None, IDC_ARROW)?,
                 hbrBackground: HBRUSH::default(),
@@ -99,7 +100,7 @@ pub mod windows_tray {
                 CW_USEDEFAULT,
                 HWND::default(),
                 HMENU::default(),
-                GetModuleHandleW(None)?.into(),
+                hinstance,
                 None,
             )?;
             
