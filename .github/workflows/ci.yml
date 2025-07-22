@@ -469,160 +469,38 @@ jobs:
             $develIcon = "$assetsDir\devel-symbolic.svg"
             if (-not (Test-Path $develIcon)) {
               # Create a proper Adwaita-style devel-symbolic icon
-              $svg = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <defs>
-    <style type="text/css">
-      .adwaita-icon-symbolic { fill: currentColor; }
-    </style>
-  </defs>
-  <g class="adwaita-icon-symbolic">
-    <path d="M8 1C4.134 1 1 4.134 1 8s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 1.5A5.5 5.5 0 0 1 13.5 8 5.5 5.5 0 0 1 8 13.5 5.5 5.5 0 0 1 2.5 8 5.5 5.5 0 0 1 8 2.5zM6 5v2h1V5.5h2V7h1V5zm0 4v2h4v-2z" style="fill:currentColor;fill-opacity:0.5"/>
-    <circle cx="8" cy="8" r="1.5" style="fill:currentColor"/>
-  </g>
-</svg>
-"@
+              $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="currentColor" opacity="0.3"/></svg>'
               Set-Content -Path $develIcon -Value $svg -Encoding UTF8
               Write-Host "  ✅ Created missing devel-symbolic.svg" -ForegroundColor Cyan
             }
             
             # Create other missing symbolic icons that Amberol needs
-            $missingIcons = @{
-              "media-skip-backward-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/>
-</svg>
-"@;
-              "media-skip-forward-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/>
-</svg>
-"@;
-              "media-playback-start-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M3 2v12l10-6z" fill="currentColor"/>
-</svg>
-"@;
-              "media-playback-pause-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <rect x="3" y="2" width="3" height="12" fill="currentColor"/>
-  <rect x="10" y="2" width="3" height="12" fill="currentColor"/>
-</svg>
-"@;
-              "view-queue-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <rect x="2" y="2" width="12" height="2" fill="currentColor"/>
-  <rect x="2" y="7" width="12" height="2" fill="currentColor"/>
-  <rect x="2" y="12" width="12" height="2" fill="currentColor"/>
-</svg>
-"@;
-              "media-playlist-shuffle-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/>
-</svg>
-"@;
-              "media-playlist-consecutive-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/>
-  <path d="M11 11v3h3v-3z" fill="currentColor"/>
-</svg>
-"@;
-              "selection-mode-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 2v12h12V2zm2 2h8v8H4z" fill="currentColor"/>
-  <path d="M6 8l1.5 1.5L11 6" stroke="currentColor" stroke-width="1.5" fill="none"/>
-</svg>
-"@;
-              "edit-select-all-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <rect x="1" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/>
-  <rect x="9" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/>
-  <rect x="1" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/>
-  <rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/>
-  <path d="M3 3l2 2 4-4" stroke="currentColor" stroke-width="1" fill="none"/>
-</svg>
-"@;
-              "app-remove-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" fill="none"/>
-</svg>
-"@;
-              "folder-music-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M2 2v12h12V6l-2-2H8L6 2z" fill="currentColor" opacity="0.5"/>
-  <circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1"/>
-  <path d="M9 8v4" stroke="currentColor" stroke-width="1"/>
-</svg>
-"@;
-                             "audio-only-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/>
-  <path d="M11 5.5c1 1 1 3 0 4M12.5 4c2 2 2 6 0 8" stroke="currentColor" stroke-width="1.5" fill="none"/>
-</svg>
-"@;
-               "open-menu-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <circle cx="4" cy="4" r="1.5" fill="currentColor"/>
-  <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
-  <circle cx="4" cy="12" r="1.5" fill="currentColor"/>
-  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="4" r="1.5" fill="currentColor"/>
-  <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
-  <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
-  <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
-</svg>
-"@;
-               "system-search-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
-  <path d="m10 10 4 4" stroke="currentColor" stroke-width="2"/>
-</svg>
-"@;
-               "go-previous-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M10 2L4 8l6 6z" fill="currentColor"/>
-</svg>
-"@;
-               "audio-volume-low-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/>
-  <path d="M11 7c0.5 0.5 0.5 1.5 0 2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-</svg>
-"@;
-               "audio-volume-high-symbolic.svg" = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/>
-  <path d="M11 5.5c1 1 1 3 0 4M12.5 4c2 2 2 6 0 8M13.5 2.5c3 3 3 9 0 12" stroke="currentColor" stroke-width="1.5" fill="none"/>
-</svg>
-"@
-            }
+            Write-Host "  🎨 Creating missing UI icons..." -ForegroundColor Blue
             
-            foreach ($iconName in $missingIcons.Keys) {
-              $iconPath = "$assetsDir\$iconName"
-              if (-not (Test-Path $iconPath)) {
-                Set-Content -Path $iconPath -Value $missingIcons[$iconName] -Encoding UTF8
-                Write-Host "  ✅ Created missing $iconName" -ForegroundColor Cyan
-              }
-            }
+            # Media control icons
+            Set-Content -Path "$assetsDir\media-skip-backward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12l6-6zm6 0v12l6-6z" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\media-skip-forward-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2l6 6-6 6zm6 0l6 6-6 6z" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\media-playback-start-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 2v12l10-6z" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\media-playback-pause-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="2" width="3" height="12" fill="currentColor"/><rect x="10" y="2" width="3" height="12" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\view-queue-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="2" fill="currentColor"/><rect x="2" y="7" width="12" height="2" fill="currentColor"/><rect x="2" y="12" width="12" height="2" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\media-playlist-shuffle-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 4l4 4-4 4v-2H1V6h1zm7-1l3 3-3 3V7h2l-2-2v2h-2zm3 5l3-3v2h1v4h-1v2z" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\media-playlist-consecutive-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v2l8 4-8 4v2l12-6z" fill="currentColor"/><path d="M11 11v3h3v-3z" fill="currentColor"/></svg>' -Encoding UTF8
+            
+            # Playlist control icons
+            Set-Content -Path "$assetsDir\selection-mode-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V2zm2 2h8v8H4z" fill="currentColor"/><path d="M6 8l1.5 1.5L11 6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\edit-select-all-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="1" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/><rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\app-remove-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" fill="none"/></svg>' -Encoding UTF8
+            
+            # Interface icons
+            Set-Content -Path "$assetsDir\folder-music-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M2 2v12h12V6l-2-2H8L6 2z" fill="currentColor" opacity="0.5"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\audio-only-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\open-menu-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="4" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="12" r="1.5" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\system-search-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="m10 10 4 4" stroke="currentColor" stroke-width="2"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\go-previous-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M10 2L4 8l6 6z" fill="currentColor"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\audio-volume-low-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 7c0.5 0.5 0.5 1.5 0 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
+            Set-Content -Path "$assetsDir\audio-volume-high-symbolic.svg" -Value '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8 2l-3 3H2v6h3l3 3z" fill="currentColor"/><path d="M11 5.5c1 1 1 3 0 4M12.5 4c2 2 2 6 0 8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' -Encoding UTF8
+            
+            Write-Host "  ✅ Created 16 missing symbolic icons" -ForegroundColor Cyan
           }
         } else {
           Write-Host "⚠️ Libadwaita themes not found at ${adwaitaThemes}" -ForegroundColor Yellow
@@ -668,21 +546,7 @@ jobs:
           if (-not (Test-Path $amberolIcon)) {
             if ($size -eq "scalable") {
               # Create SVG version
-              $appSvg = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FF6B6B"/>
-      <stop offset="100%" style="stop-color:#4ECDC4"/>
-    </linearGradient>
-  </defs>
-  <circle cx="64" cy="64" r="60" fill="url(#grad1)"/>
-  <circle cx="64" cy="64" r="40" fill="none" stroke="white" stroke-width="4"/>
-  <circle cx="64" cy="64" r="8" fill="white"/>
-  <path d="M64 24v80M24 64h80" stroke="white" stroke-width="2" opacity="0.3"/>
-</svg>
-"@
+              $appSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FF6B6B"/><stop offset="100%" style="stop-color:#4ECDC4"/></linearGradient></defs><circle cx="64" cy="64" r="60" fill="url(#grad1)"/><circle cx="64" cy="64" r="40" fill="none" stroke="white" stroke-width="4"/><circle cx="64" cy="64" r="8" fill="white"/></svg>'
               Set-Content -Path $amberolIcon -Value $appSvg -Encoding UTF8
               Set-Content -Path $amberolDevIcon -Value $appSvg -Encoding UTF8
             } else {
@@ -792,71 +656,32 @@ jobs:
         Copy-Item "check_missing_dlls.ps1" $distDir -Force
         
         # Create enhanced launcher that sets up complete environment
-        $launcher = @"
-        @echo off
-        REM Amberol Portable - Self-Contained with All Dependencies
-        REM This version includes ALL required DLLs and should work without external dependencies
+        Write-Host "📝 Creating launcher script..." -ForegroundColor Blue
+        $launcherContent = @'
+@echo off
+REM Amberol Portable - Self-Contained with All Dependencies
+setlocal
+set AMBEROL_DIR=%~dp0
+set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
+set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin
+set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
+set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
+set PATH=%AMBEROL_DIR%bin;%PATH%
+set GSK_RENDERER=gl
+set GTK_USE_PORTAL=0
+if not defined LOCALAPPDATA (set LOCALAPPDATA=%USERPROFILE%\AppData\Local)
+if not exist "%LOCALAPPDATA%\io.bassi.Amberol" (mkdir "%LOCALAPPDATA%\io.bassi.Amberol")
+echo Starting Amberol (Portable with all icons)...
+"%AMBEROL_DIR%bin\amberol.exe" %*
+if %ERRORLEVEL% neq 0 (
+    echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)
+    pause
+)
+endlocal
+'@
         
-        setlocal
-        set AMBEROL_DIR=%~dp0
-        
-        REM Set up GStreamer environment
-        set GST_PLUGIN_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
-        set GST_PLUGIN_SYSTEM_PATH=%AMBEROL_DIR%lib\gstreamer-1.0
-        set GST_REGISTRY=%AMBEROL_DIR%gst-registry.bin
-        
-        REM Set up GLib environment
-        set GSETTINGS_SCHEMA_DIR=%AMBEROL_DIR%share\glib-2.0\schemas
-        set XDG_DATA_DIRS=%AMBEROL_DIR%share;%XDG_DATA_DIRS%
-        
-        REM Set up icon environment (keep original Amberol theme)
-        REM set GTK_THEME=Adwaita
-        REM set ICON_THEME=Adwaita
-        
-        REM Add DLL directory to PATH
-        set PATH=%AMBEROL_DIR%bin;%PATH%
-        
-        REM Set GTK preferences
-        set GSK_RENDERER=gl
-        set GTK_USE_PORTAL=0
-        
-        REM Set application data directory
-        if not defined LOCALAPPDATA (
-            set LOCALAPPDATA=%USERPROFILE%\AppData\Local
-        )
-        
-        if not exist "%LOCALAPPDATA%\io.bassi.Amberol" (
-            mkdir "%LOCALAPPDATA%\io.bassi.Amberol"
-        )
-        
-        echo Starting Amberol (Self-Contained Portable)...
-        echo All dependencies included - no system installation required
-        
-        "%AMBEROL_DIR%bin\amberol.exe" %*
-        
-        if %ERRORLEVEL% neq 0 (
-            echo.
-            echo Error: Amberol failed to start (exit code: %ERRORLEVEL%)
-            echo.
-            echo This is a self-contained portable build.
-            echo Troubleshooting:
-            echo 1. Ensure Windows 10 version 1809 or Windows 11
-            echo 2. Check Windows Audio service is running
-            echo 3. Update audio drivers
-            echo 4. Try running as Administrator
-            echo 5. Check antivirus isn't blocking the application
-            echo.
-            echo Debug information:
-            echo - GST_PLUGIN_PATH: %GST_PLUGIN_PATH%
-            echo - Current directory: %CD%
-            echo - PATH: %PATH%
-            echo.
-            pause
-        )
-        endlocal
-        "@
-        
-        Set-Content -Path "$distDir\amberol.bat" -Value $launcher
+        Set-Content -Path "$distDir\amberol.bat" -Value $launcherContent
         
         # Calculate total size
         $totalSize = (Get-ChildItem $distDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
