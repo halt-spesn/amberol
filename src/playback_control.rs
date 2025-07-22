@@ -125,8 +125,49 @@ impl PlaybackControl {
         
         // Try to load the icon to verify it exists
         let icon_theme = gtk::IconTheme::for_display(&repeat_button.display());
+        
+        // Debug icon theme information
+        if let Some(theme_name) = icon_theme.theme_name() {
+            info!("  🎨 Current icon theme: {}", theme_name);
+        }
+        let search_paths = icon_theme.search_path();
+        info!("  📂 Icon search paths: {} directories", search_paths.len());
+        for (i, path) in search_paths.iter().take(3).enumerate() {
+            info!("    {}. {:?}", i + 1, path);
+        }
+        
+        // Check if similar icons exist
+        let related_icons = [
+            "media-playlist-consecutive-symbolic",
+            "media-playlist-repeat-symbolic", 
+            "media-playlist-repeat-song-symbolic",
+            "media-playlist-shuffle-symbolic"
+        ];
+        for related_icon in related_icons {
+            let exists = icon_theme.has_icon(related_icon);
+            info!("  🔍 Icon '{}': {}", related_icon, if exists { "✅" } else { "❌" });
+        }
+        
         if icon_theme.has_icon(icon_name) {
             info!("  ✅ Icon '{}' found in theme", icon_name);
+            
+            // Try to actually load the icon to see if there are issues
+            match icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::FORCE_SVG) {
+                Some(icon_paintable) => {
+                    info!("  🎨 Icon paintable loaded successfully");
+                    // Check if it's actually an SVG
+                    if let Some(file) = icon_paintable.file() {
+                        if let Some(path) = file.path() {
+                            info!("  📁 Icon loaded from: {:?}", path);
+                        } else {
+                            info!("  📦 Icon loaded from GResource");
+                        }
+                    }
+                }
+                None => {
+                    warn!("  ⚠️ Icon found in theme but failed to load paintable!");
+                }
+            }
         } else {
             warn!("  ❌ Icon '{}' NOT found in theme!", icon_name);
             warn!("     Fallback will be used (may show as missing icon)");
@@ -141,5 +182,33 @@ impl PlaybackControl {
         } else {
             warn!("  ⚠️ Button has no icon name set!");
         }
+        
+        // Try alternative loading method for problematic icons
+        if icon_name == "media-playlist-consecutive-symbolic" {
+            info!("  🔧 Trying alternative loading for consecutive icon...");
+            
+            // Try loading directly from GResource
+            if let Ok(resource_bytes) = gio::resources_lookup_data(
+                "/io/bassi/Amberol/icons/scalable/actions/media-playlist-consecutive-symbolic.svg",
+                gio::ResourceLookupFlags::NONE
+            ) {
+                info!("  📦 Successfully loaded icon data from GResource ({} bytes)", resource_bytes.len());
+                
+                // Try creating a texture from the SVG data
+                match gtk::gdk::Texture::from_bytes(&resource_bytes) {
+                    Ok(_texture) => {
+                        info!("  ✅ SVG data can be parsed as texture");
+                    }
+                    Err(e) => {
+                        warn!("  ❌ Failed to parse SVG as texture: {}", e);
+                    }
+                }
+            } else {
+                warn!("  ❌ Failed to load icon data from GResource");
+            }
+        }
+        
+        // Force a redraw to ensure the icon updates
+        repeat_button.queue_draw();
     }
 }
