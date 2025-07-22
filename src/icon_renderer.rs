@@ -297,6 +297,321 @@ impl IconRenderer {
         Some(surface)
     }
     
+    /// Create a Windows HICON for system tray usage
+    #[cfg(target_os = "windows")]
+    pub fn create_tray_icon() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        use windows::Win32::Graphics::Gdi::*;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        
+        info!("🎨 Creating Windows tray icon");
+        
+        // Create 16x16 icon for tray (standard size)
+        let size = 16;
+        let surface = Self::create_app_icon_surface(size)?;
+        
+        unsafe {
+            // Get surface data
+            let data = surface.data().ok()?;
+            let stride = surface.stride();
+            
+            // Create device context
+            let hdc = GetDC(None);
+            let hdc_mem = CreateCompatibleDC(hdc);
+            
+            // Create bitmap info
+            let mut bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: size,
+                    biHeight: -size, // Negative for top-down
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    biSizeImage: 0,
+                    biXPelsPerMeter: 0,
+                    biYPelsPerMeter: 0,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [RGBQUAD::default(); 1],
+            };
+            
+            // Create DIB bitmap
+            let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+            let hbm_color = CreateDIBSection(
+                hdc_mem,
+                &bmi,
+                DIB_RGB_COLORS,
+                &mut bits,
+                None,
+                0,
+            );
+            
+            if hbm_color.is_invalid() || bits.is_null() {
+                warn!("Failed to create DIB section for tray icon");
+                ReleaseDC(None, hdc);
+                DeleteDC(hdc_mem);
+                return None;
+            }
+            
+            // Copy Cairo surface data to bitmap
+            let dest_slice = std::slice::from_raw_parts_mut(bits as *mut u8, (size * size * 4) as usize);
+            for y in 0..size {
+                let src_offset = (y * stride) as usize;
+                let dst_offset = (y * size * 4) as usize;
+                let row_size = (size * 4) as usize;
+                
+                if src_offset + row_size <= data.len() && dst_offset + row_size <= dest_slice.len() {
+                    // Convert BGRA to RGBA and pre-multiply alpha
+                    for x in 0..size {
+                        let src_pixel = src_offset + (x * 4) as usize;
+                        let dst_pixel = dst_offset + (x * 4) as usize;
+                        
+                        if src_pixel + 3 < data.len() && dst_pixel + 3 < dest_slice.len() {
+                            let b = data[src_pixel + 0] as f32;
+                            let g = data[src_pixel + 1] as f32;
+                            let r = data[src_pixel + 2] as f32;
+                            let a = data[src_pixel + 3] as f32;
+                            
+                            // Pre-multiply alpha for Windows
+                            let alpha_norm = a / 255.0;
+                            dest_slice[dst_pixel + 0] = (b * alpha_norm) as u8; // B
+                            dest_slice[dst_pixel + 1] = (g * alpha_norm) as u8; // G
+                            dest_slice[dst_pixel + 2] = (r * alpha_norm) as u8; // R
+                            dest_slice[dst_pixel + 3] = a as u8; // A
+                        }
+                    }
+                }
+            }
+            
+            // Create mask bitmap (for transparency)
+            let hbm_mask = CreateBitmap(size, size, 1, 1, None);
+            
+            // Create icon info
+            let icon_info = ICONINFO {
+                fIcon: TRUE,
+                xHotspot: 0,
+                yHotspot: 0,
+                hbmMask: hbm_mask,
+                hbmColor: hbm_color,
+            };
+            
+            // Create the icon
+            let hicon = CreateIconIndirect(&icon_info);
+            
+            // Cleanup
+            DeleteObject(hbm_color);
+            DeleteObject(hbm_mask);
+            DeleteDC(hdc_mem);
+            ReleaseDC(None, hdc);
+            
+            if hicon.is_invalid() {
+                warn!("Failed to create Windows icon");
+                None
+            } else {
+                info!("✅ Successfully created Windows tray icon");
+                Some(hicon)
+            }
+        }
+    }
+    
+    /// Create Windows HICON for executable (multiple sizes)
+    #[cfg(target_os = "windows")]
+    pub fn create_executable_icon_set() -> Vec<(i32, windows::Win32::UI::WindowsAndMessaging::HICON)> {
+        info!("🎨 Creating Windows executable icon set");
+        
+        let sizes = [16, 32, 48, 64, 128, 256];
+        let mut icons = Vec::new();
+        
+        for &size in &sizes {
+            if let Some(hicon) = Self::create_windows_icon_from_surface(size) {
+                icons.push((size, hicon));
+                info!("✅ Created {}x{} executable icon", size, size);
+            } else {
+                warn!("❌ Failed to create {}x{} executable icon", size, size);
+            }
+        }
+        
+        info!("✅ Created {} executable icons", icons.len());
+        icons
+    }
+    
+    /// Helper function to create Windows HICON from Cairo surface
+    #[cfg(target_os = "windows")]
+    fn create_windows_icon_from_surface(size: i32) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        use windows::Win32::Graphics::Gdi::*;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        
+        let surface = Self::create_app_icon_surface(size)?;
+        
+        unsafe {
+            let data = surface.data().ok()?;
+            let stride = surface.stride();
+            
+            let hdc = GetDC(None);
+            let hdc_mem = CreateCompatibleDC(hdc);
+            
+            let mut bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: size,
+                    biHeight: -size,
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0,
+                    biSizeImage: 0,
+                    biXPelsPerMeter: 0,
+                    biYPelsPerMeter: 0,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [RGBQUAD::default(); 1],
+            };
+            
+            let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+            let hbm_color = CreateDIBSection(hdc_mem, &bmi, DIB_RGB_COLORS, &mut bits, None, 0);
+            
+            if hbm_color.is_invalid() || bits.is_null() {
+                ReleaseDC(None, hdc);
+                DeleteDC(hdc_mem);
+                return None;
+            }
+            
+            // Copy and convert pixel data
+            let dest_slice = std::slice::from_raw_parts_mut(bits as *mut u8, (size * size * 4) as usize);
+            for y in 0..size {
+                let src_offset = (y * stride) as usize;
+                let dst_offset = (y * size * 4) as usize;
+                
+                for x in 0..size {
+                    let src_pixel = src_offset + (x * 4) as usize;
+                    let dst_pixel = dst_offset + (x * 4) as usize;
+                    
+                    if src_pixel + 3 < data.len() && dst_pixel + 3 < dest_slice.len() {
+                        let b = data[src_pixel + 0] as f32;
+                        let g = data[src_pixel + 1] as f32;
+                        let r = data[src_pixel + 2] as f32;
+                        let a = data[src_pixel + 3] as f32;
+                        
+                        let alpha_norm = a / 255.0;
+                        dest_slice[dst_pixel + 0] = (b * alpha_norm) as u8;
+                        dest_slice[dst_pixel + 1] = (g * alpha_norm) as u8;
+                        dest_slice[dst_pixel + 2] = (r * alpha_norm) as u8;
+                        dest_slice[dst_pixel + 3] = a as u8;
+                    }
+                }
+            }
+            
+            let hbm_mask = CreateBitmap(size, size, 1, 1, None);
+            let icon_info = ICONINFO {
+                fIcon: TRUE,
+                xHotspot: 0,
+                yHotspot: 0,
+                hbmMask: hbm_mask,
+                hbmColor: hbm_color,
+            };
+            
+            let hicon = CreateIconIndirect(&icon_info);
+            
+            DeleteObject(hbm_color);
+            DeleteObject(hbm_mask);
+            DeleteDC(hdc_mem);
+            ReleaseDC(None, hdc);
+            
+            if hicon.is_invalid() { None } else { Some(hicon) }
+        }
+    }
+    
+    /// Create ICO file data for embedding in executable
+    #[cfg(target_os = "windows")]
+    pub fn create_ico_file_data() -> Option<Vec<u8>> {
+        info!("🎨 Creating ICO file data for executable");
+        
+        let sizes = [16, 32, 48, 64, 128, 256];
+        let mut ico_data = Vec::new();
+        let mut images_data = Vec::new();
+        
+        // ICO header
+        ico_data.extend_from_slice(&[0, 0]); // Reserved
+        ico_data.extend_from_slice(&[1, 0]); // Type (1 = ICO)
+        ico_data.extend_from_slice(&(sizes.len() as u16).to_le_bytes()); // Number of images
+        
+        let mut offset = 6 + (sizes.len() * 16); // Header + directory entries
+        
+        for &size in &sizes {
+            if let Some(surface) = Self::create_app_icon_surface(size) {
+                if let Ok(data) = surface.data() {
+                    let stride = surface.stride();
+                    
+                    // Create BMP data for this size
+                    let mut bmp_data = Vec::new();
+                    
+                    // BMP header
+                    let header_size = 40u32;
+                    bmp_data.extend_from_slice(&header_size.to_le_bytes());
+                    bmp_data.extend_from_slice(&(size as u32).to_le_bytes());
+                    bmp_data.extend_from_slice(&(size as u32 * 2).to_le_bytes()); // Height * 2 for mask
+                    bmp_data.extend_from_slice(&1u16.to_le_bytes()); // Planes
+                    bmp_data.extend_from_slice(&32u16.to_le_bytes()); // Bits per pixel
+                    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Compression
+                    bmp_data.extend_from_slice(&((size * size * 4) as u32).to_le_bytes()); // Image size
+                    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // X pixels per meter
+                    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Y pixels per meter
+                    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Colors used
+                    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Important colors
+                    
+                    // Pixel data (bottom-up)
+                    for y in (0..size).rev() {
+                        let src_offset = (y * stride) as usize;
+                        for x in 0..size {
+                            let pixel_offset = src_offset + (x * 4) as usize;
+                            if pixel_offset + 3 < data.len() {
+                                // BGRA format for BMP
+                                bmp_data.push(data[pixel_offset + 0]); // B
+                                bmp_data.push(data[pixel_offset + 1]); // G
+                                bmp_data.push(data[pixel_offset + 2]); // R
+                                bmp_data.push(data[pixel_offset + 3]); // A
+                            } else {
+                                bmp_data.extend_from_slice(&[0, 0, 0, 0]);
+                            }
+                        }
+                    }
+                    
+                    // Mask data (all transparent for now)
+                    let mask_size = (size * size + 7) / 8; // 1 bit per pixel, rounded up to bytes
+                    bmp_data.resize(bmp_data.len() + mask_size as usize, 0);
+                    
+                    // ICO directory entry
+                    let entry_size = if size >= 256 { 0 } else { size as u8 };
+                    ico_data.push(entry_size); // Width
+                    ico_data.push(entry_size); // Height
+                    ico_data.push(0); // Color count
+                    ico_data.push(0); // Reserved
+                    ico_data.extend_from_slice(&1u16.to_le_bytes()); // Planes
+                    ico_data.extend_from_slice(&32u16.to_le_bytes()); // Bits per pixel
+                    ico_data.extend_from_slice(&(bmp_data.len() as u32).to_le_bytes()); // Image size
+                    ico_data.extend_from_slice(&(offset as u32).to_le_bytes()); // Offset
+                    
+                    offset += bmp_data.len();
+                    images_data.push(bmp_data);
+                }
+            }
+        }
+        
+        // Append all image data
+        for image_data in images_data {
+            ico_data.extend_from_slice(&image_data);
+        }
+        
+        if ico_data.len() > 6 {
+            info!("✅ Created ICO file data ({} bytes)", ico_data.len());
+            Some(ico_data)
+        } else {
+            warn!("❌ Failed to create ICO file data");
+            None
+        }
+    }
+    
     /// Draw consecutive/linear playback icon (two arrows pointing right)
     fn draw_consecutive(cr: &cairo::Context) -> bool {
         // Top arrow: horizontal line with triangle

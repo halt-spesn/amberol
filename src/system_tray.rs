@@ -32,6 +32,7 @@ pub mod windows_tray {
     pub struct SystemTray {
         hwnd: HWND,
         icon_id: u32,
+        custom_icon: Option<HICON>,
     }
 
     impl std::fmt::Debug for SystemTray {
@@ -52,6 +53,7 @@ pub mod windows_tray {
             let tray = SystemTray {
                 hwnd,
                 icon_id: 1,
+                custom_icon: None,
             };
             
             tray.add_to_tray()?;
@@ -108,7 +110,7 @@ pub mod windows_tray {
             Ok(hwnd)
         }
         
-        fn add_to_tray(&self) -> Result<(), Box<dyn std::error::Error>> {
+        fn add_to_tray(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             unsafe {
                 let mut nid = NOTIFYICONDATAW {
                     cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
@@ -116,7 +118,18 @@ pub mod windows_tray {
                     uID: self.icon_id,
                     uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
                     uCallbackMessage: WM_TRAYICON,
-                    hIcon: LoadIconW(None, IDI_APPLICATION)?,
+                    hIcon: {
+                        // Try to use our custom tray icon, fallback to default
+                        use crate::icon_renderer::IconRenderer;
+                        if let Some(custom_icon) = IconRenderer::create_tray_icon() {
+                            info!("🎨 Using custom tray icon");
+                            self.custom_icon = Some(custom_icon);
+                            custom_icon
+                        } else {
+                            warn!("⚠️ Failed to create custom tray icon, using default");
+                            LoadIconW(None, IDI_APPLICATION)?
+                        }
+                    },
                     ..Default::default()
                 };
                 
