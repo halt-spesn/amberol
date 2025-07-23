@@ -266,17 +266,17 @@ impl IconRenderer {
     }
     
     /// Create a high-resolution app icon for taskbar/tray usage
-    pub fn create_app_icon_surface(size: i32) -> Option<cairo::ImageSurface> {
+    pub fn create_app_icon_surface(size: i32) -> Option<gtk::cairo::ImageSurface> {
         info!("🎨 Creating high-resolution app icon ({}x{})", size, size);
         
         // Create a Cairo surface at the requested size
-        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size)
+        let surface = gtk::cairo::ImageSurface::create(gtk::cairo::Format::ARgb32, size, size)
             .map_err(|e| {
                 warn!("Failed to create Cairo surface for app icon: {}", e);
                 e
             }).ok()?;
         
-        let cr = cairo::Context::new(&surface)
+        let cr = gtk::cairo::Context::new(&surface)
             .map_err(|e| {
                 warn!("Failed to create Cairo context for app icon: {}", e);
                 e
