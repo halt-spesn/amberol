@@ -307,7 +307,7 @@ impl IconRenderer {
         
         // Create 16x16 icon for tray (standard size)
         let size = 16;
-        let surface = Self::create_app_icon_surface(size)?;
+        let mut surface = Self::create_app_icon_surface(size)?;
         
         unsafe {
             // Get surface data
