@@ -140,7 +140,7 @@ impl DesktopIntegration {
     
     /// Create SVG version of the app icon
     fn create_svg_icon(filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let svg_content = r#"<?xml version="1.0" encoding="UTF-8"?>
+        let svg_content = r##"<?xml version="1.0" encoding="UTF-8"?>
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="musicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -174,7 +174,7 @@ impl DesktopIntegration {
     <path d="M95 45 Q102 55 95 65"/>
     <path d="M100 40 Q109 55 100 70"/>
   </g>
-</svg>"#;
+</svg>"##;
         
         std::fs::write(filename, svg_content)?;
         info!("✅ Created SVG icon: {}", filename);
