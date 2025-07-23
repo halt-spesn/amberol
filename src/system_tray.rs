@@ -215,6 +215,13 @@ pub mod windows_tray {
                 };
                 
                 let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
+                
+                // Clean up custom icon if we created one
+                if let Some(icon) = self.custom_icon {
+                    let _ = DestroyIcon(icon);
+                    info!("🗑️ Cleaned up custom tray icon");
+                }
+                
                 let _ = DestroyWindow(self.hwnd);
             }
         }

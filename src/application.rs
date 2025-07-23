@@ -180,6 +180,10 @@ mod imp {
             glib::timeout_add_seconds_local(2, clone!(@weak application => @default-return glib::ControlFlow::Break, move || {
                 use crate::icon_renderer::IconRenderer;
                 IconRenderer::apply_global_icon_fallbacks(&application);
+                
+                // Setup desktop integration (taskbar icons, tray icons)
+                crate::desktop_integration::DesktopIntegration::setup_integration(&application);
+                
                 glib::ControlFlow::Break // Run only once
             }));
         }

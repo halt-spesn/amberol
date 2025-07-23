@@ -410,14 +410,79 @@ impl IconRenderer {
                 None
             } else {
                 info!("✅ Successfully created Windows tray icon");
-                Some(hicon)
+                                        Some(hicon)
             }
         }
     }
     
-    /// Create Windows HICON for executable (multiple sizes)
-    #[cfg(target_os = "windows")]
-    pub fn create_executable_icon_set() -> Vec<(i32, windows::Win32::UI::WindowsAndMessaging::HICON)> {
+    /// Create an ICO file for the executable
+    pub fn create_executable_ico_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        info!("🎨 Creating executable ICO file at: {}", path);
+        
+        // Create multiple sizes for Windows (16, 32, 48, 256)
+        let sizes = [16, 32, 48, 256];
+        let mut ico_data = Vec::new();
+        
+        // ICO file header
+        ico_data.extend_from_slice(&[0, 0]); // Reserved (must be 0)
+        ico_data.extend_from_slice(&[1, 0]); // Type (1 = ICO)
+        ico_data.extend_from_slice(&(sizes.len() as u16).to_le_bytes()); // Number of images
+        
+        let mut image_data = Vec::new();
+        let mut directory_entries = Vec::new();
+        
+        for &size in &sizes {
+            // Create surface for this size
+            if let Some(surface) = Self::create_app_icon_surface(size) {
+                // Convert Cairo surface to PNG data
+                let mut png_data = Vec::new();
+                surface.write_to_png(&mut png_data)?;
+                
+                // ICO directory entry
+                let mut entry = Vec::new();
+                entry.push(if size == 256 { 0 } else { size as u8 }); // Width (0 = 256)
+                entry.push(if size == 256 { 0 } else { size as u8 }); // Height (0 = 256)
+                entry.push(0); // Color palette (0 = no palette)
+                entry.push(0); // Reserved
+                entry.extend_from_slice(&1u16.to_le_bytes()); // Color planes
+                entry.extend_from_slice(&32u16.to_le_bytes()); // Bits per pixel
+                entry.extend_from_slice(&(png_data.len() as u32).to_le_bytes()); // Image size
+                entry.extend_from_slice(&((6 + sizes.len() * 16 + image_data.len()) as u32).to_le_bytes()); // Image offset
+                
+                directory_entries.extend_from_slice(&entry);
+                image_data.extend_from_slice(&png_data);
+            }
+        }
+        
+        // Combine header + directory + images
+        ico_data.extend_from_slice(&directory_entries);
+        ico_data.extend_from_slice(&image_data);
+        
+        // Write to file
+        std::fs::write(path, ico_data)?;
+        info!("✅ Successfully created ICO file: {}", path);
+        
+        Ok(())
+    }
+    
+    /// Create app icon at build time for embedding in executable
+    pub fn generate_build_time_icons() -> Result<(), Box<dyn std::error::Error>> {
+        info!("🏗️ Generating build-time icons for executable");
+        
+        // Create ICO file for Windows executable
+        Self::create_executable_ico_file("amberol.ico")?;
+        
+        // Also create PNG versions for other platforms
+        for &size in &[16, 32, 48, 64, 128, 256] {
+            if let Some(surface) = Self::create_app_icon_surface(size) {
+                let filename = format!("amberol-{}x{}.png", size, size);
+                surface.write_to_png(&mut std::fs::File::create(&filename)?)?;
+                info!("✅ Created {}", filename);
+            }
+        }
+        
+        Ok(())
+    }
         info!("🎨 Creating Windows executable icon set");
         
         let sizes = [16, 32, 48, 64, 128, 256];

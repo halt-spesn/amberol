@@ -2,39 +2,142 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::env;
-use std::fs;
 use std::path::Path;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     
-    // Check if we have a config.rs file in the build directory (from meson)
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let build_config = Path::new(&out_dir).join("../../../config.rs");
-    let src_config = Path::new("src/config.rs");
-    
-    // If meson generated a config.rs in the build directory, copy it to src/
-    if build_config.exists() && (!src_config.exists() || 
-        fs::metadata(&build_config).unwrap().modified().unwrap() > 
-        fs::metadata(&src_config).unwrap().modified().unwrap()) {
+    // Only generate icons for Windows builds
+    if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
         
-        if let Ok(contents) = fs::read_to_string(&build_config) {
-            let _ = fs::write(src_config, contents);
+        // Generate the icon file if it doesn't exist
+        if !Path::new("amberol.ico").exists() {
+            generate_app_icon().unwrap_or_else(|e| {
+                println!("cargo:warning=Failed to generate app icon: {}", e);
+            });
+        }
+        
+        // Tell cargo to embed the icon
+        println!("cargo:rustc-link-arg=/ICON:amberol.ico");
+    }
+}
+
+fn generate_app_icon() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a simple programmatic icon
+    let sizes = [16, 32, 48, 256];
+    let mut ico_data = Vec::new();
+    
+    // ICO file header
+    ico_data.extend_from_slice(&[0, 0]); // Reserved (must be 0)
+    ico_data.extend_from_slice(&[1, 0]); // Type (1 = ICO)
+    ico_data.extend_from_slice(&(sizes.len() as u16).to_le_bytes()); // Number of images
+    
+    let mut image_data = Vec::new();
+    let mut directory_entries = Vec::new();
+    
+    for &size in &sizes {
+        // Create a simple bitmap for each size
+        let bmp_data = create_simple_icon_bitmap(size)?;
+        
+        // ICO directory entry
+        let mut entry = Vec::new();
+        entry.push(if size == 256 { 0 } else { size as u8 }); // Width (0 = 256)
+        entry.push(if size == 256 { 0 } else { size as u8 }); // Height (0 = 256)
+        entry.push(0); // Color palette (0 = no palette)
+        entry.push(0); // Reserved
+        entry.extend_from_slice(&1u16.to_le_bytes()); // Color planes
+        entry.extend_from_slice(&32u16.to_le_bytes()); // Bits per pixel
+        entry.extend_from_slice(&(bmp_data.len() as u32).to_le_bytes()); // Image size
+        entry.extend_from_slice(&((6 + sizes.len() * 16 + image_data.len()) as u32).to_le_bytes()); // Image offset
+        
+        directory_entries.extend_from_slice(&entry);
+        image_data.extend_from_slice(&bmp_data);
+    }
+    
+    // Combine header + directory + images
+    ico_data.extend_from_slice(&directory_entries);
+    ico_data.extend_from_slice(&image_data);
+    
+    // Write to file
+    std::fs::write("amberol.ico", ico_data)?;
+    println!("Generated amberol.ico");
+    
+    Ok(())
+}
+
+fn create_simple_icon_bitmap(size: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    // Create a simple bitmap with the Amberol-style music note
+    let mut bmp_data = Vec::new();
+    
+    // BMP header for 32-bit RGBA
+    let file_size = 54 + (size * size * 4); // Header + pixel data
+    
+    // BMP file header
+    bmp_data.extend_from_slice(b"BM"); // Signature
+    bmp_data.extend_from_slice(&(file_size as u32).to_le_bytes()); // File size
+    bmp_data.extend_from_slice(&[0, 0, 0, 0]); // Reserved
+    bmp_data.extend_from_slice(&54u32.to_le_bytes()); // Offset to pixel data
+    
+    // BMP info header
+    bmp_data.extend_from_slice(&40u32.to_le_bytes()); // Header size
+    bmp_data.extend_from_slice(&(size as i32).to_le_bytes()); // Width
+    bmp_data.extend_from_slice(&(-(size as i32)).to_le_bytes()); // Height (negative for top-down)
+    bmp_data.extend_from_slice(&1u16.to_le_bytes()); // Planes
+    bmp_data.extend_from_slice(&32u16.to_le_bytes()); // Bits per pixel
+    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Compression
+    bmp_data.extend_from_slice(&(size * size * 4).to_le_bytes()); // Image size
+    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // X pixels per meter
+    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Y pixels per meter
+    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Colors used
+    bmp_data.extend_from_slice(&0u32.to_le_bytes()); // Important colors
+    
+    // Create pixel data - simple music note shape
+    for y in 0..size {
+        for x in 0..size {
+            let (r, g, b, a) = if is_music_note_pixel(x, y, size) {
+                (255, 140, 0, 255) // Orange color
+            } else {
+                (0, 0, 0, 0) // Transparent
+            };
+            
+            // BMP uses BGRA format
+            bmp_data.push(b);
+            bmp_data.push(g);
+            bmp_data.push(r);
+            bmp_data.push(a);
         }
     }
     
-    // If no config.rs exists, create a default one for development
-    if !src_config.exists() {
-        let default_config = r#"// SPDX-FileCopyrightText: 2022  Emmanuele Bassi
-// SPDX-License-Identifier: GPL-3.0-or-later
+    Ok(bmp_data)
+}
 
-pub static VERSION: &str = "2024.2-dev";
-pub static GETTEXT_PACKAGE: &str = "amberol";
-pub static LOCALEDIR: &str = "/usr/local/share/locale";
-pub static PKGDATADIR: &str = "/usr/local/share/amberol";
-pub static APPLICATION_ID: &str = "io.bassi.Amberol.Devel";
-pub static PROFILE: &str = "development";
-"#;
-        let _ = fs::write(src_config, default_config);
+fn is_music_note_pixel(x: u32, y: u32, size: u32) -> bool {
+    let fx = x as f32 / size as f32;
+    let fy = y as f32 / size as f32;
+    
+    // Simple music note shape
+    // Note head (circle)
+    let head_x = 0.3;
+    let head_y = 0.7;
+    let head_radius = 0.15;
+    
+    if (fx - head_x).powi(2) + (fy - head_y).powi(2) <= head_radius.powi(2) {
+        return true;
     }
+    
+    // Note stem (vertical line)
+    if fx >= head_x + head_radius - 0.05 && fx <= head_x + head_radius + 0.05 && fy >= 0.2 && fy <= head_y {
+        return true;
+    }
+    
+    // Note flag (curved)
+    if fx >= head_x + head_radius && fx <= 0.8 && fy >= 0.2 && fy <= 0.4 {
+        let curve = 0.3 + 0.2 * ((fx - head_x - head_radius) * 5.0).sin();
+        if fy <= curve {
+            return true;
+        }
+    }
+    
+    false
 }
