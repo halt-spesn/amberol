@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::env;
 use std::path::Path;
 
 fn main() {
@@ -118,9 +117,9 @@ fn is_music_note_pixel(x: u32, y: u32, size: u32) -> bool {
     
     // Simple music note shape
     // Note head (circle)
-    let head_x = 0.3;
-    let head_y = 0.7;
-    let head_radius = 0.15;
+    let head_x: f32 = 0.3;
+    let head_y: f32 = 0.7;
+    let head_radius: f32 = 0.15;
     
     if (fx - head_x).powi(2) + (fy - head_y).powi(2) <= head_radius.powi(2) {
         return true;
@@ -133,7 +132,7 @@ fn is_music_note_pixel(x: u32, y: u32, size: u32) -> bool {
     
     // Note flag (curved)
     if fx >= head_x + head_radius && fx <= 0.8 && fy >= 0.2 && fy <= 0.4 {
-        let curve = 0.3 + 0.2 * ((fx - head_x - head_radius) * 5.0).sin();
+        let curve: f32 = 0.3 + 0.2 * ((fx - head_x - head_radius) * 5.0).sin();
         if fy <= curve {
             return true;
         }
