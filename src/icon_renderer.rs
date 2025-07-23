@@ -311,8 +311,8 @@ impl IconRenderer {
         
         unsafe {
             // Get surface data
-            let data = surface.data().ok()?;
             let stride = surface.stride();
+            let data = surface.data().ok()?;
             
             // Create device context
             let hdc = GetDC(None);
@@ -511,11 +511,11 @@ impl IconRenderer {
         use windows::Win32::Graphics::Gdi::*;
         use windows::Win32::UI::WindowsAndMessaging::*;
         
-        let surface = Self::create_app_icon_surface(size)?;
+        let mut surface = Self::create_app_icon_surface(size)?;
         
         unsafe {
-            let data = surface.data().ok()?;
             let stride = surface.stride();
+            let data = surface.data().ok()?;
             
             let hdc = GetDC(None);
             let hdc_mem = CreateCompatibleDC(hdc);

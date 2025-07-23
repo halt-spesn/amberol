@@ -37,9 +37,9 @@ impl DesktopIntegration {
         let _icon_theme = gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap());
         
         // Try to set a custom icon
-        if let Some(icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
+        if let Some(mut icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
             // Convert to GdkTexture for GTK4
-            let _texture = gtk::gdk::Texture::for_pixbuf(&Self::surface_to_pixbuf(&icon_surface));
+            let _texture = gtk::gdk::Texture::for_pixbuf(&Self::surface_to_pixbuf(&mut icon_surface));
             
             // Set as default icon for all windows
             for window in app.windows() {
@@ -59,7 +59,7 @@ impl DesktopIntegration {
     }
     
     /// Convert Cairo surface to GdkPixbuf
-    fn surface_to_pixbuf(surface: &gtk::cairo::ImageSurface) -> gtk::gdk_pixbuf::Pixbuf {
+    fn surface_to_pixbuf(surface: &mut gtk::cairo::ImageSurface) -> gtk::gdk_pixbuf::Pixbuf {
         let width = surface.width();
         let height = surface.height();
         let stride = surface.stride();
