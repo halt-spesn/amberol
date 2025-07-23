@@ -483,6 +483,10 @@ impl IconRenderer {
         
         Ok(())
     }
+    
+    /// Create Windows HICON set for executable (multiple sizes)
+    #[cfg(target_os = "windows")]
+    pub fn create_executable_icon_set() -> Vec<(i32, windows::Win32::UI::WindowsAndMessaging::HICON)> {
         info!("🎨 Creating Windows executable icon set");
         
         let sizes = [16, 32, 48, 64, 128, 256];
