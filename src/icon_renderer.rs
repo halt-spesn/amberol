@@ -345,7 +345,7 @@ impl IconRenderer {
                 &mut bits,
                 None,
                 0,
-            );
+            )?;
             
             if hbm_color.is_invalid() || bits.is_null() {
                 warn!("Failed to create DIB section for tray icon");
@@ -389,7 +389,7 @@ impl IconRenderer {
             
             // Create icon info
             let icon_info = ICONINFO {
-                fIcon: TRUE,
+                fIcon: true.into(),
                 xHotspot: 0,
                 yHotspot: 0,
                 hbmMask: hbm_mask,
@@ -397,7 +397,7 @@ impl IconRenderer {
             };
             
             // Create the icon
-            let hicon = CreateIconIndirect(&icon_info);
+            let hicon = CreateIconIndirect(&icon_info)?;
             
             // Cleanup
             DeleteObject(hbm_color);
@@ -434,9 +434,12 @@ impl IconRenderer {
         for &size in &sizes {
             // Create surface for this size
             if let Some(surface) = Self::create_app_icon_surface(size) {
-                // Convert Cairo surface to PNG data
+                // Convert Cairo surface to PNG data  
                 let mut png_data = Vec::new();
-                surface.write_to_png(&mut png_data)?;
+                {
+                    let mut cursor = std::io::Cursor::new(&mut png_data);
+                    surface.write_to_png(&mut cursor)?;
+                }
                 
                 // ICO directory entry
                 let mut entry = Vec::new();
@@ -538,7 +541,7 @@ impl IconRenderer {
             };
             
             let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
-            let hbm_color = CreateDIBSection(hdc_mem, &bmi, DIB_RGB_COLORS, &mut bits, None, 0);
+            let hbm_color = CreateDIBSection(hdc_mem, &bmi, DIB_RGB_COLORS, &mut bits, None, 0)?;
             
             if hbm_color.is_invalid() || bits.is_null() {
                 ReleaseDC(None, hdc);
@@ -571,16 +574,16 @@ impl IconRenderer {
                 }
             }
             
-            let hbm_mask = CreateBitmap(size, size, 1, 1, None);
+            let hbm_mask = CreateBitmap(size, size, 1, 1, None)?;
             let icon_info = ICONINFO {
-                fIcon: TRUE,
+                fIcon: true.into(),
                 xHotspot: 0,
                 yHotspot: 0,
                 hbmMask: hbm_mask,
                 hbmColor: hbm_color,
             };
             
-            let hicon = CreateIconIndirect(&icon_info);
+            let hicon = CreateIconIndirect(&icon_info)?;
             
             DeleteObject(hbm_color);
             DeleteObject(hbm_mask);
@@ -609,8 +612,8 @@ impl IconRenderer {
         
         for &size in &sizes {
             if let Some(surface) = Self::create_app_icon_surface(size) {
+                let stride = surface.stride();
                 if let Ok(data) = surface.data() {
-                    let stride = surface.stride();
                     
                     // Create BMP data for this size
                     let mut bmp_data = Vec::new();

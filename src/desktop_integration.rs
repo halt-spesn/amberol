@@ -34,29 +34,27 @@ impl DesktopIntegration {
         info!("🎨 Setting up application icon for taskbar");
         
         // Create programmatic app icon
-        if let Some(icon_theme) = gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap()) {
-            // Try to set a custom icon
-            if let Some(icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
-                // Convert to GdkTexture for GTK4
-                if let Ok(texture) = gtk::gdk::Texture::for_pixbuf(&Self::surface_to_pixbuf(&icon_surface)) {
-                    // Set as default icon for all windows
-                    for window in app.windows() {
-                        if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
-                            gtk_window.set_icon_name(Some("io.bassi.Amberol"));
-                            
-                            // Also try to set custom icon directly
-                            #[cfg(target_os = "windows")]
-                            Self::set_windows_taskbar_icon(gtk_window);
-                        }
-                    }
+        let _icon_theme = gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap());
+        
+        // Try to set a custom icon
+        if let Some(icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
+            // Convert to GdkTexture for GTK4
+            let _texture = gtk::gdk::Texture::for_pixbuf(&Self::surface_to_pixbuf(&icon_surface));
+            
+            // Set as default icon for all windows
+            for window in app.windows() {
+                if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
+                    gtk_window.set_icon_name(Some("io.bassi.Amberol"));
                     
-                    info!("✅ Application icon set for taskbar");
-                } else {
-                    warn!("⚠️ Failed to create texture from icon surface");
+                    // Also try to set custom icon directly
+                    #[cfg(target_os = "windows")]
+                    Self::set_windows_taskbar_icon(gtk_window);
                 }
-            } else {
-                warn!("⚠️ Failed to create app icon surface");
             }
+            
+            info!("✅ Application icon set for taskbar");
+        } else {
+            warn!("⚠️ Failed to create app icon surface");
         }
     }
     

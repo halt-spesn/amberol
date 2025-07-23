@@ -18,7 +18,7 @@ pub mod windows_tray {
                 NIM_MODIFY, NOTIFYICONDATAW,
             },
             WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DestroyWindow, LoadCursorW, PostQuitMessage, 
+                CreateWindowExW, DefWindowProcW, DestroyIcon, DestroyWindow, LoadCursorW, PostQuitMessage, 
                 RegisterClassExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, 
                 WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, 
                 WS_OVERLAPPEDWINDOW, HICON, LoadIconW, IDI_APPLICATION, WINDOW_EX_STYLE,
@@ -50,7 +50,7 @@ pub mod windows_tray {
             // Create a hidden window to receive tray messages
             let hwnd = unsafe { Self::create_hidden_window()? };
             
-            let tray = SystemTray {
+            let mut tray = SystemTray {
                 hwnd,
                 icon_id: 1,
                 custom_icon: None,
