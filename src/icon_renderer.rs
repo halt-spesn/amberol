@@ -601,8 +601,8 @@ impl IconRenderer {
                     height,
                     1,  // planes
                     32, // bits per pixel
-                    None, // AND mask (None = no transparency mask)
-                    Some(data.as_ptr()), // XOR bitmap data
+                    std::ptr::null(), // AND mask (null = no transparency mask)
+                    data.as_ptr(), // XOR bitmap data
                 );
                 
                 match hicon_result {

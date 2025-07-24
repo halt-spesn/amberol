@@ -3,7 +3,7 @@
 
 //! Desktop integration for icons, taskbar, and system tray
 
-use gtk::{gio, glib, prelude::*};
+use gtk::{gdk, gio, glib, prelude::*};
 use log::{info, warn};
 
 #[cfg(target_os = "windows")]
@@ -38,15 +38,21 @@ impl DesktopIntegration {
         for dir_path in &icon_dirs {
             let path = std::path::Path::new(dir_path);
             if let Ok(()) = std::fs::create_dir_all(path) {
-                Self::create_svg_icon(path, "io.bassi.Amberol");
-                info!("📁 Created taskbar icon in: {}", dir_path);
+                let icon_file = path.join("io.bassi.Amberol.svg");
+                if let Some(icon_path_str) = icon_file.to_str() {
+                    let _ = Self::create_svg_icon(icon_path_str);
+                    info!("📁 Created taskbar icon in: {}", dir_path);
+                }
             }
         }
         
         for dir_path in &temp_dirs {
             let _ = std::fs::create_dir_all(dir_path);
-            Self::create_svg_icon(dir_path, "io.bassi.Amberol");
-            info!("📁 Created taskbar icon in: {:?}", dir_path);
+            let icon_file = dir_path.join("io.bassi.Amberol.svg");
+            if let Some(icon_path_str) = icon_file.to_str() {
+                let _ = Self::create_svg_icon(icon_path_str);
+                info!("📁 Created taskbar icon in: {:?}", dir_path);
+            }
         }
         
         // Add temp directories to icon theme
