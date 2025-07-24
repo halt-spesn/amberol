@@ -183,13 +183,7 @@ pub mod windows_tray {
                         }
                         _ => {
                             // Handle other tray messages if needed
-                            let _signal_name = "amberol-restore-from-tray";
-                                
-                                // Fallback behavior for other tray messages
-                                glib::ControlFlow::Continue
-                            });
                         }
-                        _ => {}
                     }
                 }
                 WM_COMMAND => {
@@ -227,7 +221,6 @@ pub mod windows_tray {
             
             LRESULT(0)
         }
-            }
         
         /// Show context menu for tray icon
         unsafe fn show_context_menu(hwnd: HWND) {
