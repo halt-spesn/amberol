@@ -39,11 +39,11 @@ REM set GST_DEBUG=3
 REM set GST_DEBUG_FILE=%AMBEROL_DIR%gstreamer-debug.log
 
 REM Enable GTK icon debugging (uncomment for troubleshooting missing icons)
-REM set GTK_DEBUG=icon-theme
-REM set G_MESSAGES_DEBUG=all
+set GTK_DEBUG=icon-theme
+set G_MESSAGES_DEBUG=all
 
 REM Enable Amberol debug logging (shows icon loading and tray info)
-set RUST_LOG=amberol=info
+set RUST_LOG=amberol=debug,info
 
 REM Set application data directory
 if not defined LOCALAPPDATA (

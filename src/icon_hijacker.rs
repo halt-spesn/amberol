@@ -129,7 +129,7 @@ impl IconHijacker {
                 }
                 
                 // Method 3: Try to force icon theme to have our icon
-                if let Some(display) = window.display() {
+                if let Some(display) = gtk::prelude::WidgetExt::display(window) {
                     let icon_theme = gtk::IconTheme::for_display(&display);
                     let search_paths = icon_theme.search_path();
                     info!("🔍 Icon theme search paths: {:?}", search_paths);
