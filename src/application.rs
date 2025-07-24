@@ -302,7 +302,221 @@ impl Application {
             .translator_credits(i18n("translator-credits"))
             .build();
 
+        // Fix icons in the about dialog after it's created
+        glib::timeout_add_local_once(std::time::Duration::from_millis(100), glib::clone!(@weak dialog => move || {
+            Self::fix_about_dialog_icons(&dialog);
+        }));
+
         dialog.present();
+    }
+    
+    /// Fix icons in the about dialog by directly replacing them
+    fn fix_about_dialog_icons(dialog: &adw::AboutWindow) {
+        use gtk::prelude::*;
+        info!("🔧 Directly fixing about dialog icons");
+        
+        // Try to find and replace images in the about dialog
+        Self::scan_and_fix_widget_icons(dialog.upcast_ref::<gtk::Widget>());
+        
+        // Also try to set a custom application icon directly if possible
+        if let Some(texture) = Self::create_about_app_icon() {
+            // Unfortunately, AdwAboutWindow doesn't expose a direct way to set the icon
+            // But our widget scanning should catch it
+            info!("✅ Created custom about dialog app icon texture");
+        }
+    }
+    
+    /// Create a custom application icon for the about dialog
+    fn create_about_app_icon() -> Option<gdk::Texture> {
+        if let Some(mut surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(64) {
+            // Convert surface to pixbuf then texture
+            let width = surface.width();
+            let height = surface.height();
+            let stride = surface.stride();
+            
+            if let Ok(data) = surface.data() {
+                let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_bytes(
+                    &glib::Bytes::from(&data[..]),
+                    gtk::gdk_pixbuf::Colorspace::Rgb,
+                    true, // has_alpha
+                    8,    // bits_per_sample
+                    width,
+                    height,
+                    stride,
+                );
+                
+                return Some(gdk::Texture::for_pixbuf(&pixbuf));
+            }
+        }
+        None
+    }
+    
+    /// Recursively scan and fix icons in a widget tree
+    fn scan_and_fix_widget_icons(widget: &gtk::Widget) {
+        // Check if this widget is an Image that might need fixing
+        if let Some(image) = widget.downcast_ref::<gtk::Image>() {
+            Self::fix_image_icon(image);
+        }
+        
+        // Check if this widget is a Button with an icon
+        if let Some(button) = widget.downcast_ref::<gtk::Button>() {
+            Self::fix_button_icon(button);
+        }
+        
+        // Recursively scan child widgets
+        let mut child = widget.first_child();
+        while let Some(current_child) = child {
+            Self::scan_and_fix_widget_icons(&current_child);
+            child = current_child.next_sibling();
+        }
+    }
+    
+    /// Fix a specific image widget
+    fn fix_image_icon(image: &gtk::Image) {
+        use gtk::prelude::*;
+        
+        // Check what kind of image this is and if it needs fixing
+        match image.storage_type() {
+            gtk::ImageType::IconName => {
+                if let Some(icon_name) = image.icon_name() {
+                    if Self::should_fix_icon(&icon_name) {
+                        info!("🎨 Fixing image icon: {}", icon_name);
+                        if let Some(texture) = Self::create_icon_texture(&icon_name) {
+                            image.set_from_paintable(Some(&texture));
+                        }
+                    }
+                }
+            }
+            gtk::ImageType::Gicon => {
+                if let Some(gicon) = image.gicon() {
+                    if let Some(themed_icon) = gicon.downcast_ref::<gtk::gio::ThemedIcon>() {
+                        let names = themed_icon.names();
+                        for name in names {
+                            if Self::should_fix_icon(&name) {
+                                info!("🎨 Fixing GIcon: {}", name);
+                                if let Some(texture) = Self::create_icon_texture(&name) {
+                                    image.set_from_paintable(Some(&texture));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    
+    /// Fix a specific button widget
+    fn fix_button_icon(button: &gtk::Button) {
+        use gtk::prelude::*;
+        
+        if let Some(icon_name) = button.icon_name() {
+            if Self::should_fix_icon(&icon_name) {
+                info!("🎨 Fixing button icon: {}", icon_name);
+                crate::icon_renderer::IconRenderer::set_button_icon_programmatic(button, &icon_name);
+            }
+        }
+    }
+    
+    /// Check if an icon should be fixed
+    fn should_fix_icon(icon_name: &str) -> bool {
+        matches!(icon_name,
+            "io.bassi.Amberol" |
+            "io.bassi.Amberol.Devel" |
+            "web-browser-symbolic" |
+            "user-home-symbolic" |
+            "document-edit-symbolic" |
+            "bug-symbolic" |
+            "system-search-symbolic" |
+            "open-menu-symbolic" |
+            "image-missing"
+        )
+    }
+    
+    /// Create a texture for a specific icon name
+    fn create_icon_texture(icon_name: &str) -> Option<gdk::Texture> {
+        if let Some(mut surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(24) {
+            // Draw the specific icon on the surface
+            if let Ok(cr) = gtk::cairo::Context::new(&surface) {
+                cr.set_source_rgba(0.2, 0.2, 0.2, 1.0);
+                
+                let success = match icon_name {
+                    "io.bassi.Amberol" | "io.bassi.Amberol.Devel" => Self::draw_musical_note(&cr),
+                    "web-browser-symbolic" | "user-home-symbolic" => Self::draw_globe(&cr),
+                    "bug-symbolic" | "document-edit-symbolic" => Self::draw_bug(&cr),
+                    _ => false,
+                };
+                
+                if success {
+                    // Convert to texture
+                    let width = surface.width();
+                    let height = surface.height();
+                    let stride = surface.stride();
+                    
+                    if let Ok(data) = surface.data() {
+                        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_bytes(
+                            &glib::Bytes::from(&data[..]),
+                            gtk::gdk_pixbuf::Colorspace::Rgb,
+                            true, // has_alpha
+                            8,    // bits_per_sample
+                            width,
+                            height,
+                            stride,
+                        );
+                        
+                        return Some(gdk::Texture::for_pixbuf(&pixbuf));
+                    }
+                }
+            }
+        }
+        None
+    }
+    
+    /// Draw a musical note
+    fn draw_musical_note(cr: &gtk::cairo::Context) -> bool {
+        // Simple musical note
+        cr.arc(4.0, 16.0, 3.0, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        cr.arc(14.0, 12.0, 2.5, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        cr.move_to(7.0, 16.0);
+        cr.line_to(7.0, 4.0);
+        cr.line_to(16.5, 2.0);
+        cr.line_to(16.5, 12.0);
+        cr.stroke().unwrap_or(());
+        true
+    }
+    
+    /// Draw a globe icon
+    fn draw_globe(cr: &gtk::cairo::Context) -> bool {
+        // Simple globe
+        cr.arc(12.0, 12.0, 8.0, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        cr.move_to(12.0, 4.0);
+        cr.line_to(12.0, 20.0);
+        cr.stroke().unwrap_or(());
+        cr.move_to(4.0, 12.0);
+        cr.line_to(20.0, 12.0);
+        cr.stroke().unwrap_or(());
+        true
+    }
+    
+    /// Draw a bug icon
+    fn draw_bug(cr: &gtk::cairo::Context) -> bool {
+        // Simple bug
+        cr.arc(12.0, 12.0, 6.0, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        // Legs
+        for i in 0..3 {
+            let y = 8.0 + i as f64 * 3.0;
+            cr.move_to(6.0, y);
+            cr.line_to(2.0, y - 1.0);
+            cr.move_to(18.0, y);
+            cr.line_to(22.0, y - 1.0);
+            cr.stroke().unwrap_or(());
+        }
+        true
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]

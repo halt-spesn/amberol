@@ -93,19 +93,41 @@ impl DesktopIntegration {
             // Set as default icon for all windows
             for window in app.windows() {
                 if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
-                    // Set programmatic icon name
-                    gtk_window.set_icon_name(Some("io.bassi.Amberol"));
+                    info!("🎯 Setting taskbar icon for window: {:?}", gtk_window.title());
                     
-                    // Try setting via application ID as fallback
-                    if let Some(app) = gtk_window.application() {
-                        if let Some(app_id) = app.application_id() {
-                            gtk_window.set_icon_name(Some(&app_id));
+                    // Method 1: Try setting the icon directly via paintable
+                    if let Some(paintable) = Some(&texture).map(|t| t.upcast_ref::<gdk::Paintable>()) {
+                        // Unfortunately GTK4 doesn't have set_icon method, but we can try other approaches
+                        info!("✅ Created paintable for window icon");
+                    }
+                    
+                    // Method 2: Set programmatic icon name after ensuring it exists in theme
+                    let icon_theme = gtk::IconTheme::for_display(&gtk::prelude::WidgetExt::display(gtk_window));
+                    icon_theme.add_search_path("data/icons/hicolor/scalable/apps");
+                    
+                    // Force create the icon in the theme directory
+                    if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
+                        let custom_icons_dir = temp_dir.join("amberol-taskbar");
+                        let _ = std::fs::create_dir_all(&custom_icons_dir);
+                        
+                        // Create the SVG icon file directly
+                        let icon_file = custom_icons_dir.join("io.bassi.Amberol.svg");
+                        let svg_content = Self::create_taskbar_svg();
+                        if std::fs::write(&icon_file, svg_content).is_ok() {
+                            icon_theme.add_search_path(&custom_icons_dir);
+                            info!("✅ Created taskbar icon file: {:?}", icon_file);
                         }
                     }
                     
-                    // Add icon to icon theme for better integration
-                    let icon_theme = gtk::IconTheme::for_display(&gtk::prelude::WidgetExt::display(gtk_window));
-                    icon_theme.add_search_path("data/icons/hicolor/scalable/apps");
+                    gtk_window.set_icon_name(Some("io.bassi.Amberol"));
+                    
+                    // Method 3: Try setting via application ID as fallback
+                    if let Some(app) = gtk_window.application() {
+                        if let Some(app_id) = app.application_id() {
+                            gtk_window.set_icon_name(Some(&app_id));
+                            info!("🔧 Set icon name to application ID: {}", app_id);
+                        }
+                    }
                     
                     #[cfg(target_os = "windows")]
                     Self::set_windows_taskbar_icon(gtk_window, &texture);
@@ -232,5 +254,27 @@ impl DesktopIntegration {
         std::fs::write(filename, svg_content)?;
         info!("✅ Created SVG icon: {}", filename);
         Ok(())
+    }
+    
+    /// Create SVG content specifically for taskbar icon
+    fn create_taskbar_svg() -> String {
+        r##"<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="musicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff6600;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Musical note for application icon -->
+  <circle cx="16" cy="48" r="6" fill="url(#musicGrad)" stroke="#333" stroke-width="1"/>
+  <circle cx="44" cy="38" r="5" fill="url(#musicGrad)" stroke="#333" stroke-width="1"/>
+  <path d="M22 48 L22 16 L50 12 L50 38" stroke="#333" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Staff lines for context -->
+  <line x1="8" y1="20" x2="56" y2="20" stroke="#ddd" stroke-width="1"/>
+  <line x1="8" y1="28" x2="56" y2="28" stroke="#ddd" stroke-width="1"/>
+  <line x1="8" y1="36" x2="56" y2="36" stroke="#ddd" stroke-width="1"/>
+  <line x1="8" y1="44" x2="56" y2="44" stroke="#ddd" stroke-width="1"/>
+</svg>"##.to_string()
     }
 }

@@ -149,29 +149,46 @@ impl IconThemeProvider {
        }
    }
    
-   /// Force create icons needed for the about dialog
-   pub fn force_create_about_icons() {
-       info!("🎯 Force creating about dialog icons");
-       
-       // Create icons in temp directory with highest priority
-       let icon_dir = std::env::temp_dir().join("amberol-about-icons");
-       let _ = std::fs::create_dir_all(&icon_dir);
-       
-       // Generate the specific icons needed for about dialog
-       Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol");
-       Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol.Devel");
-       Self::generate_icon_svg(&icon_dir, "web-browser-symbolic");
-       Self::generate_icon_svg(&icon_dir, "bug-symbolic");
-       
-       // Add to icon theme with highest priority
-       if let Some(display) = gdk::Display::default() {
-           let icon_theme = gtk::IconTheme::for_display(&display);
-           icon_theme.add_search_path(&icon_dir);
-           // Add twice to trigger refresh
-           icon_theme.add_search_path(&icon_dir);
-           info!("📁 Added about dialog icon path: {:?}", icon_dir);
-       }
-   }
+       /// Force create icons needed for the about dialog
+    pub fn force_create_about_icons() {
+        info!("🎯 Force creating about dialog icons");
+        
+        // Create icons in temp directory with highest priority
+        let icon_dir = std::env::temp_dir().join("amberol-about-icons");
+        let _ = std::fs::create_dir_all(&icon_dir);
+        
+        // Generate the specific icons needed for about dialog
+        Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol");
+        Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol.Devel");
+        Self::generate_icon_svg(&icon_dir, "web-browser-symbolic");
+        Self::generate_icon_svg(&icon_dir, "bug-symbolic");
+        
+        // Debug: Check if files were actually created
+        for icon_name in &["io.bassi.Amberol", "io.bassi.Amberol.Devel", "web-browser-symbolic", "bug-symbolic"] {
+            let icon_file = icon_dir.join(format!("{}.svg", icon_name));
+            if icon_file.exists() {
+                info!("✅ Created icon file: {:?}", icon_file);
+            } else {
+                warn!("❌ Failed to create icon file: {:?}", icon_file);
+            }
+        }
+        
+        // Add to icon theme with highest priority
+        if let Some(display) = gdk::Display::default() {
+            let icon_theme = gtk::IconTheme::for_display(&display);
+            icon_theme.add_search_path(&icon_dir);
+            // Add twice to trigger refresh
+            icon_theme.add_search_path(&icon_dir);
+            info!("📁 Added about dialog icon path: {:?}", icon_dir);
+            
+            // Debug: List all search paths
+            let search_paths = icon_theme.search_path();
+            info!("🔍 Icon theme search paths:");
+            for (i, path) in search_paths.iter().enumerate() {
+                info!("  {}: {:?}", i, path);
+            }
+        }
+    }
    
    /// Generate missing icons as SVG files in the custom icons directory
     fn generate_missing_icons(icons_dir: &std::path::Path) {
