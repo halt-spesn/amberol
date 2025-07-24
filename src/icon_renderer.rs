@@ -127,6 +127,13 @@ impl IconRenderer {
             "audio-volume-low-symbolic" => "🔈".to_string(),
             "audio-volume-medium-symbolic" => "🔉".to_string(),
             "audio-volume-high-symbolic" => "🔊".to_string(),
+            // Application icons
+            "io.bassi.Amberol" | "io.bassi.Amberol.Devel" => "🎵".to_string(),
+            // About dialog and website icons
+            "web-browser-symbolic" | "user-home-symbolic" => "🌐".to_string(),
+            "document-edit-symbolic" | "bug-symbolic" => "🐛".to_string(),
+            "system-search-symbolic" => "🔍".to_string(),
+            "open-menu-symbolic" => "☰".to_string(),
             _ => "?".to_string(),
         }
     }
@@ -253,7 +260,12 @@ impl IconRenderer {
                 "audio-volume-medium-symbolic" => Self::draw_volume_medium(cr),
                 "audio-volume-high-symbolic" => Self::draw_volume_high(cr),
                 // App icons
-                "io.bassi.Amberol" | "amberol" => Self::draw_amberol_app_icon(cr),
+                "io.bassi.Amberol" | "io.bassi.Amberol.Devel" | "amberol" => Self::draw_amberol_app_icon(cr),
+                // About dialog and web icons
+                "web-browser-symbolic" | "user-home-symbolic" => Self::draw_web_browser(cr),
+                "document-edit-symbolic" | "bug-symbolic" => Self::draw_bug(cr),
+                "system-search-symbolic" => Self::draw_search(cr),
+                "open-menu-symbolic" => Self::draw_menu(cr),
                 _ => {
                     warn!("Unknown programmatic icon: {}", icon_name_for_closure);
                     false
@@ -1336,6 +1348,126 @@ impl IconRenderer {
         cr.stroke().unwrap_or_default();
         
         cr.arc(5.0, 8.0, 5.0, -std::f64::consts::PI/8.0, std::f64::consts::PI/8.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw web browser icon (globe)
+    fn draw_web_browser(cr: &cairo::Context) -> bool {
+        // Globe outline
+        cr.arc(8.0, 8.0, 6.0, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or_default();
+        
+        // Longitude lines
+        cr.move_to(8.0, 2.0);
+        cr.line_to(8.0, 14.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(5.0, 3.5);
+        cr.curve_to(8.0, 5.0, 8.0, 11.0, 11.0, 12.5);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(11.0, 3.5);
+        cr.curve_to(8.0, 5.0, 8.0, 11.0, 5.0, 12.5);
+        cr.stroke().unwrap_or_default();
+        
+        // Latitude lines
+        cr.move_to(2.0, 8.0);
+        cr.line_to(14.0, 8.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(3.0, 5.5);
+        cr.curve_to(6.0, 6.0, 10.0, 6.0, 13.0, 5.5);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(3.0, 10.5);
+        cr.curve_to(6.0, 10.0, 10.0, 10.0, 13.0, 10.5);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw bug/issue icon
+    fn draw_bug(cr: &cairo::Context) -> bool {
+        // Bug body (oval)
+        cr.move_to(8.0, 4.0);
+        cr.curve_to(10.5, 4.0, 12.0, 6.0, 12.0, 8.5);
+        cr.curve_to(12.0, 11.0, 10.5, 13.0, 8.0, 13.0);
+        cr.curve_to(5.5, 13.0, 4.0, 11.0, 4.0, 8.5);
+        cr.curve_to(4.0, 6.0, 5.5, 4.0, 8.0, 4.0);
+        cr.close_path();
+        cr.fill().unwrap_or_default();
+        
+        // Antennae
+        cr.set_line_width(1.0);
+        cr.move_to(6.5, 4.0);
+        cr.line_to(5.5, 2.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(9.5, 4.0);
+        cr.line_to(10.5, 2.0);
+        cr.stroke().unwrap_or_default();
+        
+        // Legs
+        cr.move_to(4.0, 6.0);
+        cr.line_to(2.0, 5.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(4.0, 8.5);
+        cr.line_to(2.0, 8.5);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(4.0, 11.0);
+        cr.line_to(2.0, 12.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(12.0, 6.0);
+        cr.line_to(14.0, 5.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(12.0, 8.5);
+        cr.line_to(14.0, 8.5);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(12.0, 11.0);
+        cr.line_to(14.0, 12.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw search icon (magnifying glass)
+    fn draw_search(cr: &cairo::Context) -> bool {
+        // Magnifying glass circle
+        cr.arc(6.0, 6.0, 4.0, 0.0, 2.0 * std::f64::consts::PI);
+        cr.set_line_width(1.5);
+        cr.stroke().unwrap_or_default();
+        
+        // Handle
+        cr.set_line_width(2.0);
+        cr.move_to(9.0, 9.0);
+        cr.line_to(13.0, 13.0);
+        cr.stroke().unwrap_or_default();
+        
+        true
+    }
+    
+    /// Draw menu icon (hamburger menu)
+    fn draw_menu(cr: &cairo::Context) -> bool {
+        cr.set_line_width(1.5);
+        
+        // Three horizontal lines
+        cr.move_to(3.0, 5.0);
+        cr.line_to(13.0, 5.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(3.0, 8.0);
+        cr.line_to(13.0, 8.0);
+        cr.stroke().unwrap_or_default();
+        
+        cr.move_to(3.0, 11.0);
+        cr.line_to(13.0, 11.0);
         cr.stroke().unwrap_or_default();
         
         true
