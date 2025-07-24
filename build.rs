@@ -20,8 +20,23 @@ fn main() {
             // The icon would need to be embedded via a resource file (.rc)
         }
         
-        // Generate the icon file if it doesn't exist
-        if !Path::new("amberol.ico").exists() {
+        // Use the existing ICO file or generate one if it doesn't exist
+        let ico_source = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
+        let ico_target = "amberol.ico";
+        
+        if Path::new(ico_source).exists() {
+            // Copy the existing ICO file to the build directory
+            if let Err(e) = std::fs::copy(ico_source, ico_target) {
+                println!("cargo:warning=Failed to copy app icon: {}", e);
+                // Fallback to generating the icon
+                generate_app_icon().unwrap_or_else(|e| {
+                    println!("cargo:warning=Failed to generate fallback app icon: {}", e);
+                });
+            } else {
+                println!("cargo:warning=Using existing app icon: {}", ico_source);
+            }
+        } else {
+            println!("cargo:warning=ICO file not found at {}, generating programmatic icon", ico_source);
             generate_app_icon().unwrap_or_else(|e| {
                 println!("cargo:warning=Failed to generate app icon: {}", e);
             });
