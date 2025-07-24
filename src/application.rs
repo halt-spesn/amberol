@@ -363,7 +363,6 @@ impl Application {
     
     /// Fix a specific image widget
     fn fix_image_icon(image: &gtk::Image) {
-        use gtk::prelude::*;
         
         // Check what kind of image this is and if it needs fixing
         match image.storage_type() {
@@ -399,7 +398,6 @@ impl Application {
     
     /// Fix a specific button widget
     fn fix_button_icon(button: &gtk::Button) {
-        use gtk::prelude::*;
         
         if let Some(icon_name) = button.icon_name() {
             if Self::should_fix_icon(&icon_name) {

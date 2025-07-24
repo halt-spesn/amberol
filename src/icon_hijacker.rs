@@ -149,7 +149,7 @@ impl IconHijacker {
         
         // Try to determine what icon this image is supposed to show
         let icon_name = match image.storage_type() {
-            gtk::ImageType::IconName => image.icon_name(),
+            gtk::ImageType::IconName => image.icon_name().map(|s| s.to_string()),
             gtk::ImageType::Gicon => {
                 if let Some(gicon) = image.gicon() {
                     if let Some(themed_icon) = gicon.downcast_ref::<gtk::gio::ThemedIcon>() {
@@ -181,16 +181,17 @@ impl IconHijacker {
     /// Hijack a specific button widget
     fn hijack_button(button: &gtk::Button, textures: &Arc<Mutex<HashMap<String, gdk::Texture>>>) {
         if let Some(icon_name) = button.icon_name() {
+            let icon_name_str = icon_name.to_string();
             let textures_guard = textures.lock().unwrap();
-            if textures_guard.contains_key(&icon_name) {
+            if textures_guard.contains_key(&icon_name_str) {
                 // Remove the button's icon and add our own image
-                button.set_icon_name(None);
+                button.set_icon_name("");
                 
-                if let Some(texture) = textures_guard.get(&icon_name) {
+                if let Some(texture) = textures_guard.get(&icon_name_str) {
                     let image = gtk::Image::new();
                     image.set_paintable(Some(texture));
                     button.set_child(Some(&image));
-                    info!("🚨 HIJACKED button icon: {}", icon_name);
+                    info!("🚨 HIJACKED button icon: {}", icon_name_str);
                 }
             }
         }
@@ -376,7 +377,7 @@ impl IconHijacker {
     fn create_texture_from_drawing(size: i32, draw_fn: impl Fn(&gtk::cairo::Context) -> bool) -> Option<gdk::Texture> {
         use gtk::cairo;
         
-        if let Ok(surface) = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size) {
+        if let Ok(mut surface) = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size) {
             if let Ok(cr) = cairo::Context::new(&surface) {
                 // Clear background
                 cr.set_source_rgba(0.0, 0.0, 0.0, 0.0);
