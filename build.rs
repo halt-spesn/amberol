@@ -6,19 +6,19 @@ use std::path::Path;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico");
+    println!("cargo:rerun-if-changed=icon.rc");
     
     // Only generate icons for Windows builds
     if cfg!(target_os = "windows") {
         // Use appropriate linker arguments based on the target
         if cfg!(target_env = "msvc") {
-            // MSVC linker
+            // MSVC linker - compile and link resource file
+            compile_resource_file();
             println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
-            println!("cargo:rustc-link-arg=/ICON:amberol.ico");
         } else {
-            // MinGW/GNU linker
+            // MinGW/GNU linker - compile and link resource file
+            compile_resource_file();
             println!("cargo:rustc-link-arg=-Wl,--subsystem,windows");
-            // Note: MinGW doesn't support embedding icons via linker args
-            // The icon would need to be embedded via a resource file (.rc)
         }
         
         // Use the existing ICO file or generate one if it doesn't exist
@@ -162,4 +162,43 @@ fn is_music_note_pixel(x: u32, y: u32, size: u32) -> bool {
     }
     
     false
+}
+
+/// Compile Windows resource file to embed icon and version info
+fn compile_resource_file() {
+    let rc_file = "icon.rc";
+    let res_file = "icon.res";
+    
+    if !Path::new(rc_file).exists() {
+        println!("cargo:warning=Resource file {} not found, skipping", rc_file);
+        return;
+    }
+    
+    // Try to compile the resource file
+    let output = if cfg!(target_env = "msvc") {
+        // Use MSVC resource compiler
+        std::process::Command::new("rc")
+            .args(&["/fo", res_file, rc_file])
+            .output()
+    } else {
+        // Use MinGW resource compiler
+        std::process::Command::new("windres")
+            .args(&["-i", rc_file, "-o", res_file])
+            .output()
+    };
+    
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                println!("cargo:rustc-link-arg={}", res_file);
+                println!("cargo:warning=Successfully compiled resource file");
+            } else {
+                println!("cargo:warning=Failed to compile resource file: {}", 
+                    String::from_utf8_lossy(&result.stderr));
+            }
+        }
+        Err(e) => {
+            println!("cargo:warning=Resource compiler not found: {}. Icon embedding skipped.", e);
+        }
+    }
 }

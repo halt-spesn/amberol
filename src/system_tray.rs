@@ -9,7 +9,7 @@ pub mod windows_tray {
     use std::rc::Rc;
     use crate::icon_renderer::IconRenderer;
     use windows::Win32::{
-        Foundation::{HWND, LPARAM, LRESULT, WPARAM, HINSTANCE},
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM, HINSTANCE, POINT},
         Graphics::Gdi::HBRUSH,
         System::LibraryLoader::GetModuleHandleW,
         UI::{
@@ -23,6 +23,8 @@ pub mod windows_tray {
                 WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, 
                 WS_OVERLAPPEDWINDOW, HICON, LoadIconW, IDI_APPLICATION, WINDOW_EX_STYLE,
                 HMENU, LoadImageW, IMAGE_ICON, LR_LOADFROMFILE,
+                CreatePopupMenu, AppendMenuW, TrackPopupMenu, DestroyMenu, SetForegroundWindow,
+                MF_STRING, TPM_RIGHTBUTTON, TPM_RETURNCMD, WM_COMMAND, GetCursorPos,
             },
         },
     };
@@ -158,36 +160,60 @@ pub mod windows_tray {
             match msg {
                 WM_TRAYICON => {
                     match lparam.0 as u32 {
-                        WM_LBUTTONUP | WM_RBUTTONUP => {
-                            info!("🖱️ Tray icon clicked - will restore window");
+                        WM_LBUTTONUP => {
+                            info!("🖱️ Tray icon left-clicked - restoring window");
                             
-                            // Use the simplest approach: send a custom signal that the app can handle
                             glib::idle_add_once(|| {
                                 info!("📱 Tray clicked - sending restore signal");
                                 
-                                // Send a signal that the application can listen for
-                                // This is the most reliable cross-platform approach
-                                let signal_name = "amberol-restore-from-tray";
-                                
                                 // Try to find any GTK application and trigger an action
                                 if let Some(app) = gtk::gio::Application::default() {
-                                    // Try to activate the application, which should bring it to the front
                                     app.activate();
                                     info!("📱 Activated application via GApplication");
                                 } else {
                                     warn!("⚠️ Could not find GApplication to activate");
                                 }
                                 
-                                // Alternative: Use a simple file-based signal
-                                // This ensures the main application thread can detect the restore request
-                                if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
-                                    let signal_file = temp_dir.join("amberol-restore-signal");
-                                    if let Err(e) = std::fs::write(&signal_file, "restore") {
-                                        warn!("⚠️ Could not write restore signal file: {}", e);
-                                    } else {
-                                        info!("📱 Created restore signal file: {:?}", signal_file);
-                                    }
+                                glib::ControlFlow::Continue
+                            });
+                        }
+                        WM_RBUTTONUP => {
+                            info!("🖱️ Tray icon right-clicked - showing context menu");
+                            Self::show_context_menu(hwnd);
+                        }
+                        _ => {
+                            // Handle other tray messages if needed
+                            let _signal_name = "amberol-restore-from-tray";
+                                
+                                // Fallback behavior for other tray messages
+                                glib::ControlFlow::Continue
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+                WM_COMMAND => {
+                    let command_id = (wparam.0 & 0xFFFF) as u32;
+                    match command_id {
+                        1001 => {
+                            // Restore/Show window
+                            info!("📱 Context menu: Restore selected");
+                            glib::idle_add_once(|| {
+                                if let Some(app) = gtk::gio::Application::default() {
+                                    app.activate();
                                 }
+                                glib::ControlFlow::Continue
+                            });
+                        }
+                        1002 => {
+                            // Quit application
+                            info!("🚪 Context menu: Quit selected");
+                            glib::idle_add_once(|| {
+                                if let Some(app) = gtk::gio::Application::default() {
+                                    app.quit();
+                                    info!("📱 Application quit requested");
+                                }
+                                glib::ControlFlow::Continue
                             });
                         }
                         _ => {}
@@ -201,9 +227,51 @@ pub mod windows_tray {
             
             LRESULT(0)
         }
-    }
-    
-    impl Drop for SystemTray {
+            }
+        
+        /// Show context menu for tray icon
+        unsafe fn show_context_menu(hwnd: HWND) {
+            let hmenu = CreatePopupMenu();
+            if hmenu.is_invalid() {
+                warn!("Failed to create popup menu");
+                return;
+            }
+            
+            // Add menu items
+            let restore_text: Vec<u16> = "Show Amberol\0".encode_utf16().collect();
+            let quit_text: Vec<u16> = "Quit\0".encode_utf16().collect();
+            
+            AppendMenuW(hmenu, MF_STRING, 1001, windows::core::PCWSTR(restore_text.as_ptr()));
+            AppendMenuW(hmenu, MF_STRING, 1002, windows::core::PCWSTR(quit_text.as_ptr()));
+            
+            // Get cursor position
+            let mut pt = POINT { x: 0, y: 0 };
+            GetCursorPos(&mut pt);
+            
+            // Required for proper menu behavior
+            SetForegroundWindow(hwnd);
+            
+            // Show menu and get selection
+            let cmd = TrackPopupMenu(
+                hmenu,
+                TPM_RIGHTBUTTON | TPM_RETURNCMD,
+                pt.x,
+                pt.y,
+                0,
+                hwnd,
+                None,
+            );
+            
+            // Handle menu selection
+            if cmd != 0 {
+                use windows::Win32::UI::WindowsAndMessaging::SendMessageW;
+                SendMessageW(hwnd, WM_COMMAND, WPARAM(cmd as usize), LPARAM(0));
+            }
+            
+            DestroyMenu(hmenu);
+        }
+        
+        impl Drop for SystemTray {
         fn drop(&mut self) {
             info!("🗑️ Removing system tray icon");
             unsafe {
