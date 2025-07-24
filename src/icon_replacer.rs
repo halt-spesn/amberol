@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use gtk::{glib, prelude::*};
+use gtk::{gdk, glib, prelude::*};
 use log::{info, warn};
 
 /// Aggressive icon replacer that scans widget trees and replaces missing icons
@@ -127,25 +127,19 @@ impl IconReplacer {
     
     /// Set a programmatic image for a gtk::Image widget
     fn set_programmatic_image(image: &gtk::Image, icon_name: &str) {
-        // Create a programmatic icon widget
-        if let Some(icon_widget) = crate::icon_renderer::IconRenderer::create_programmatic_icon(icon_name, 16) {
-            // We can't directly replace the image content, but we can try to replace the parent's child
-            if let Some(parent) = image.parent() {
-                // Try to replace with a drawing area if possible
-                // This is tricky because we need to maintain the same layout properties
-                
-                // For now, let's try setting the image from a paintable
-                if let Some(paintable) = Self::create_paintable_for_icon(icon_name) {
-                    image.set_from_paintable(Some(&paintable));
-                }
-            }
+        // Create a paintable for this icon and set it directly
+        if let Some(paintable) = Self::create_paintable_for_icon(icon_name) {
+            image.set_paintable(Some(&paintable));
+            info!("✅ Successfully replaced image with programmatic icon: {}", icon_name);
+        } else {
+            warn!("⚠️ Failed to create paintable for icon: {}", icon_name);
         }
     }
     
     /// Create a paintable for an icon
     fn create_paintable_for_icon(icon_name: &str) -> Option<gdk::Paintable> {
-        // Create a surface using our icon renderer
-        if let Some(mut surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(16) {
+        // Create a surface using our icon renderer - but we need to draw the specific icon
+        if let Some(mut surface) = Self::create_icon_surface_for_name(icon_name, 16) {
             // Convert to pixbuf
             let width = surface.width();
             let height = surface.height();
@@ -167,6 +161,143 @@ impl IconReplacer {
             }
         }
         None
+    }
+    
+    /// Create a surface for a specific icon name
+    fn create_icon_surface_for_name(icon_name: &str, size: i32) -> Option<gtk::cairo::ImageSurface> {
+        use gtk::cairo;
+        
+        // Create surface
+        let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, size, size).ok()?;
+        let cr = cairo::Context::new(&surface).ok()?;
+        
+        // Set up drawing context
+        cr.set_source_rgba(0.0, 0.0, 0.0, 0.0); // Transparent background
+        cr.paint().ok()?;
+        
+        // Set drawing color (use theme-appropriate color)
+        cr.set_source_rgba(0.2, 0.2, 0.2, 1.0); // Dark gray for visibility
+        cr.set_line_width(1.0);
+        
+        // Draw the appropriate icon
+        let success = match icon_name {
+            "io.bassi.Amberol" | "io.bassi.Amberol.Devel" => Self::draw_app_icon(&cr, size),
+            "web-browser-symbolic" | "user-home-symbolic" => Self::draw_web_browser(&cr, size),
+            "document-edit-symbolic" | "bug-symbolic" => Self::draw_bug(&cr, size),
+            "system-search-symbolic" => Self::draw_search(&cr, size),
+            "open-menu-symbolic" => Self::draw_menu(&cr, size),
+            "audio-only-symbolic" => Self::draw_audio(&cr, size),
+            "folder-music-symbolic" => Self::draw_folder(&cr, size),
+            "image-missing" => Self::draw_fallback(&cr, size),
+            _ => Self::draw_fallback(&cr, size),
+        };
+        
+        if success {
+            Some(surface)
+        } else {
+            None
+        }
+    }
+    
+    // Simple drawing functions for different icon types
+    fn draw_app_icon(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Musical note
+        cr.arc(s * 0.2, s * 0.8, s * 0.1, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        cr.arc(s * 0.7, s * 0.6, s * 0.08, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        cr.move_to(s * 0.3, s * 0.8);
+        cr.line_to(s * 0.3, s * 0.2);
+        cr.line_to(s * 0.78, s * 0.15);
+        cr.line_to(s * 0.78, s * 0.6);
+        cr.stroke().unwrap_or(());
+        true
+    }
+    
+    fn draw_web_browser(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Globe
+        cr.arc(s * 0.5, s * 0.5, s * 0.35, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        cr.move_to(s * 0.5, s * 0.15);
+        cr.line_to(s * 0.5, s * 0.85);
+        cr.stroke().unwrap_or(());
+        cr.move_to(s * 0.15, s * 0.5);
+        cr.line_to(s * 0.85, s * 0.5);
+        cr.stroke().unwrap_or(());
+        true
+    }
+    
+    fn draw_bug(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Bug body
+        cr.arc(s * 0.5, s * 0.5, s * 0.25, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        // Legs
+        for i in 0..3 {
+            let y = s * (0.3 + i as f64 * 0.2);
+            cr.move_to(s * 0.25, y);
+            cr.line_to(s * 0.1, y - s * 0.05);
+            cr.move_to(s * 0.75, y);
+            cr.line_to(s * 0.9, y - s * 0.05);
+            cr.stroke().unwrap_or(());
+        }
+        true
+    }
+    
+    fn draw_search(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Magnifying glass
+        cr.arc(s * 0.4, s * 0.4, s * 0.2, 0.0, 2.0 * std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        cr.move_to(s * 0.55, s * 0.55);
+        cr.line_to(s * 0.8, s * 0.8);
+        cr.stroke().unwrap_or(());
+        true
+    }
+    
+    fn draw_menu(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Hamburger menu
+        for i in 0..3 {
+            let y = s * (0.3 + i as f64 * 0.2);
+            cr.move_to(s * 0.2, y);
+            cr.line_to(s * 0.8, y);
+            cr.stroke().unwrap_or(());
+        }
+        true
+    }
+    
+    fn draw_audio(cr: &cairo::Context, size: i32) -> bool {
+        Self::draw_app_icon(cr, size) // Same as app icon (musical note)
+    }
+    
+    fn draw_folder(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Folder
+        cr.move_to(s * 0.1, s * 0.3);
+        cr.line_to(s * 0.1, s * 0.8);
+        cr.line_to(s * 0.9, s * 0.8);
+        cr.line_to(s * 0.9, s * 0.4);
+        cr.line_to(s * 0.6, s * 0.4);
+        cr.line_to(s * 0.5, s * 0.3);
+        cr.close_path();
+        cr.stroke().unwrap_or(());
+        // Music note inside
+        cr.arc(s * 0.4, s * 0.6, s * 0.05, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        true
+    }
+    
+    fn draw_fallback(cr: &cairo::Context, size: i32) -> bool {
+        let s = size as f64;
+        // Question mark
+        cr.arc(s * 0.5, s * 0.3, s * 0.1, 0.0, std::f64::consts::PI);
+        cr.stroke().unwrap_or(());
+        cr.arc(s * 0.5, s * 0.7, s * 0.05, 0.0, 2.0 * std::f64::consts::PI);
+        cr.fill().unwrap_or(());
+        true
     }
     
     /// Force replacement of specific widgets by CSS class or ID
