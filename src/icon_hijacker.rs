@@ -102,18 +102,76 @@ impl IconHijacker {
     fn force_set_window_icon(window: &gtk::Window, textures: &Arc<Mutex<HashMap<String, gdk::Texture>>>) {
         let textures_guard = textures.lock().unwrap();
         
-        // Try multiple icon names
-        for icon_name in &["io.bassi.Amberol", "io.bassi.Amberol.Devel"] {
-            if let Some(_texture) = textures_guard.get(*icon_name) {
+        // Debug: Log current window state
+        info!("🔍 Window debug - Title: {:?}, Icon name: {:?}", 
+              window.title(), window.icon_name());
+        
+        // Try multiple approaches to set the window icon
+        let icon_names = ["io.bassi.Amberol.Devel", "io.bassi.Amberol"];
+        
+        for icon_name in &icon_names {
+            if textures_guard.contains_key(*icon_name) {
+                // Method 1: Set icon name directly
                 window.set_icon_name(Some(icon_name));
+                info!("🚨 Set window icon name: {}", icon_name);
                 
-                // Also try to set via application
+                // Method 2: Set via application if available
                 if let Some(app) = window.application() {
-                    app.set_application_id(Some("io.bassi.Amberol"));
+                    // Get the current application ID
+                    let current_app_id = app.application_id();
+                    info!("🔍 Current application ID: {:?}", current_app_id);
+                    
+                    // Try to ensure the application ID matches our icon
+                    if current_app_id.as_ref().map(|s| s.as_str()) != Some("io.bassi.Amberol.Devel") {
+                        app.set_application_id(Some("io.bassi.Amberol.Devel"));
+                        info!("🚨 Set application ID to: io.bassi.Amberol.Devel");
+                    }
+                }
+                
+                // Method 3: Try to force icon theme to have our icon
+                if let Some(display) = window.display() {
+                    let icon_theme = gtk::IconTheme::for_display(&display);
+                    let search_paths = icon_theme.search_path();
+                    info!("🔍 Icon theme search paths: {:?}", search_paths);
+                    
+                    // Check if icon theme can find our icon
+                    if icon_theme.has_icon(icon_name) {
+                        info!("✅ Icon theme HAS icon: {}", icon_name);
+                    } else {
+                        warn!("❌ Icon theme MISSING icon: {}", icon_name);
+                        
+                        // Force add a search path with our icon
+                        Self::force_create_window_icon(icon_name, &icon_theme);
+                    }
                 }
                 
                 info!("🚨 FORCED window icon: {} for window: {:?}", icon_name, window.title());
                 break;
+            }
+        }
+    }
+    
+    /// Force create window icon in icon theme
+    fn force_create_window_icon(icon_name: &str, icon_theme: &gtk::IconTheme) {
+        use std::io::Write;
+        
+        if let Ok(temp_dir) = std::env::temp_dir().canonicalize() {
+            let icon_dir = temp_dir.join("amberol-window-icons");
+            if std::fs::create_dir_all(&icon_dir).is_ok() {
+                let icon_file = icon_dir.join(format!("{}.svg", icon_name));
+                
+                // Create a simple SVG icon
+                let svg_content = format!(r##"<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="36" r="6" fill="#ff8c00" stroke="#333" stroke-width="1"/>
+  <circle cx="32" cy="28" r="5" fill="#ff8c00" stroke="#333" stroke-width="1"/>
+  <path d="M18 36 L18 12 L38 8 L38 28" stroke="#333" stroke-width="3" fill="none"/>
+</svg>"##);
+                
+                if std::fs::write(&icon_file, svg_content).is_ok() {
+                    icon_theme.add_search_path(&icon_dir);
+                    info!("🚨 FORCE CREATED window icon file: {:?}", icon_file);
+                }
             }
         }
     }
@@ -165,29 +223,49 @@ impl IconHijacker {
         };
         
         if let Some(icon_name) = icon_name {
-            if let Some(texture) = textures_guard.get(&icon_name) {
-                image.set_paintable(Some(texture));
-                info!("🚨 HIJACKED image icon: {}", icon_name);
-            } else {
-                // Force set to app icon if we don't have a specific replacement
-                if let Some(texture) = textures_guard.get("io.bassi.Amberol") {
+            // Only hijack icons we know should be replaced
+            if Self::should_hijack_icon(&icon_name) {
+                if let Some(texture) = textures_guard.get(&icon_name) {
                     image.set_paintable(Some(texture));
-                    info!("🚨 FORCE REPLACED unknown icon '{}' with app icon", icon_name);
+                    info!("🚨 HIJACKED image icon: {}", icon_name);
+                } else {
+                    // Force set to app icon if we don't have a specific replacement
+                    if let Some(texture) = textures_guard.get("io.bassi.Amberol") {
+                        image.set_paintable(Some(texture));
+                        info!("🚨 FORCE REPLACED unknown icon '{}' with app icon", icon_name);
+                    }
                 }
             }
         }
+    }
+    
+    /// Check if an icon should be hijacked (be more selective)
+    fn should_hijack_icon(icon_name: &str) -> bool {
+        matches!(icon_name,
+            "io.bassi.Amberol" |
+            "io.bassi.Amberol.Devel" |
+            "web-browser-symbolic" |
+            "user-home-symbolic" |
+            "document-edit-symbolic" |
+            "bug-symbolic" |
+            "system-search-symbolic" |
+            "open-menu-symbolic" |
+            "image-missing"
+            // Deliberately NOT including "audio-only-symbolic" - let the existing system handle it
+        )
     }
     
     /// Hijack a specific button widget
     fn hijack_button(button: &gtk::Button, textures: &Arc<Mutex<HashMap<String, gdk::Texture>>>) {
         if let Some(icon_name) = button.icon_name() {
             let icon_name_str = icon_name.to_string();
-            let textures_guard = textures.lock().unwrap();
-            if textures_guard.contains_key(&icon_name_str) {
-                // Remove the button's icon and add our own image
-                button.set_icon_name("");
-                
+            // Only hijack buttons with icons we want to replace
+            if Self::should_hijack_icon(&icon_name_str) {
+                let textures_guard = textures.lock().unwrap();
                 if let Some(texture) = textures_guard.get(&icon_name_str) {
+                    // Remove the button's icon and add our own image
+                    button.set_icon_name("");
+                    
                     let image = gtk::Image::new();
                     image.set_paintable(Some(texture));
                     button.set_child(Some(&image));
