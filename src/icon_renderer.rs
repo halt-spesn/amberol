@@ -309,18 +309,34 @@ impl IconRenderer {
         
         // Try to load from the existing ICO file first
         let ico_path = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
-        if std::path::Path::new(ico_path).exists() {
+        
+        // Check current working directory for debugging
+        if let Ok(cwd) = std::env::current_dir() {
+            info!("🔍 Current working directory: {:?}", cwd);
+        }
+        
+        let ico_path_buf = std::path::Path::new(ico_path);
+        if ico_path_buf.exists() {
             info!("📁 Loading tray icon from existing ICO file: {}", ico_path);
             
+            // Try to get absolute path for better reliability
+            let absolute_path = if let Ok(abs_path) = ico_path_buf.canonicalize() {
+                abs_path.to_string_lossy().to_string()
+            } else {
+                ico_path.to_string()
+            };
+            
+            info!("🔍 Using path: {}", absolute_path);
+            
             // Convert path to wide string for Windows API
-            let wide_path: Vec<u16> = OsStr::new(ico_path)
+            let wide_path: Vec<u16> = OsStr::new(&absolute_path)
                 .encode_wide()
                 .chain(std::iter::once(0))
                 .collect();
             
             unsafe {
                 // Load icon from file (16x16 for tray)
-                let hicon = LoadImageW(
+                let hicon_result = LoadImageW(
                     None,
                     windows::core::PCWSTR(wide_path.as_ptr()),
                     IMAGE_ICON,
@@ -328,14 +344,26 @@ impl IconRenderer {
                     LR_LOADFROMFILE
                 );
                 
-                if let Ok(hicon) = hicon {
-                    if !hicon.is_invalid() {
-                        info!("✅ Successfully loaded tray icon from ICO file");
-                        return Some(windows::Win32::UI::WindowsAndMessaging::HICON(hicon.0));
+                match hicon_result {
+                    Ok(hicon) => {
+                        if !hicon.is_invalid() {
+                            info!("✅ Successfully loaded tray icon from ICO file");
+                            return Some(windows::Win32::UI::WindowsAndMessaging::HICON(hicon.0));
+                        } else {
+                            warn!("⚠️ LoadImageW returned invalid handle");
+                        }
+                    }
+                    Err(e) => {
+                        warn!("⚠️ LoadImageW failed with error: {:?}", e);
                     }
                 }
-                
-                warn!("⚠️ Failed to load icon from ICO file, falling back to programmatic");
+            }
+        } else {
+            warn!("⚠️ ICO file not found at: {}", ico_path);
+            if let Ok(cwd) = std::env::current_dir() {
+                warn!("⚠️ Working directory: {:?}", cwd);
+                let full_path = cwd.join(ico_path);
+                warn!("⚠️ Full path would be: {:?}", full_path);
             }
         }
         

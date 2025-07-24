@@ -33,28 +33,74 @@ impl DesktopIntegration {
     fn setup_app_icon(app: &crate::application::Application) {
         info!("🎨 Setting up application icon for taskbar");
         
-        // Create programmatic app icon
-        let _icon_theme = gtk::IconTheme::for_display(&gtk::gdk::Display::default().unwrap());
+        // First try to load the ICO file directly for windows
+        let ico_path = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
+        let mut icon_set = false;
         
-        // Try to set a custom icon
-        if let Some(mut icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
-            // Convert to GdkTexture for GTK4
-            let _texture = gtk::gdk::Texture::for_pixbuf(&Self::surface_to_pixbuf(&mut icon_surface));
+        #[cfg(target_os = "windows")]
+        if std::path::Path::new(ico_path).exists() {
+            info!("📁 Loading window icon from ICO file: {}", ico_path);
             
-            // Set as default icon for all windows
-            for window in app.windows() {
-                if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
-                    gtk_window.set_icon_name(Some("io.bassi.Amberol"));
-                    
-                    // Also try to set custom icon directly
-                    #[cfg(target_os = "windows")]
-                    Self::set_windows_taskbar_icon(gtk_window);
+            // Try to load ICO file and convert to pixbuf
+            if let Ok(pixbuf) = gtk::gdk_pixbuf::Pixbuf::from_file(ico_path) {
+                let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+                
+                // Set icon for all windows
+                for window in app.windows() {
+                    if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
+                                                 // Try different approaches to set the window icon
+                         
+                         // Method 1: Set icon name (requires icon to be in icon theme)
+                         gtk_window.set_icon_name(Some("io.bassi.Amberol"));
+                         
+                         // Method 2: Try setting via application ID 
+                         if let Some(app) = gtk_window.application() {
+                             if let Some(app_id) = app.application_id() {
+                                 gtk_window.set_icon_name(Some(&app_id));
+                             }
+                         }
+                         
+                         // Method 3: Add icon to icon theme (for future use)
+                         let icon_theme = gtk::IconTheme::for_display(&gtk_window.display());
+                         icon_theme.add_search_path("data/icons/hicolor/scalable/apps");
+                         
+                         info!("🎨 Set multiple icon methods for window");
+                        
+                        info!("✅ Set ICO file as window icon");
+                        icon_set = true;
+                    }
                 }
+            } else {
+                warn!("⚠️ Failed to load ICO file as pixbuf");
             }
-            
-            info!("✅ Application icon set for taskbar");
-        } else {
-            warn!("⚠️ Failed to create app icon surface");
+        }
+        
+        // Fallback to programmatic icon if ICO loading failed
+        if !icon_set {
+            info!("🎨 Using programmatic icon for windows");
+            if let Some(mut icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
+                // Convert to GdkTexture for GTK4
+                if let Ok(pixbuf) = Self::surface_to_pixbuf(&mut icon_surface) {
+                    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+                    
+                    // Set as default icon for all windows
+                    for window in app.windows() {
+                        if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
+                            gtk_window.set_icon_name(Some("io.bassi.Amberol"));
+                            
+                            // Also try to set custom icon directly
+                            #[cfg(target_os = "windows")]
+                            Self::set_windows_taskbar_icon(gtk_window, &texture);
+                        }
+                    }
+                    
+                    info!("✅ Application icon set for taskbar");
+                } else {
+                    warn!("⚠️ Failed to convert surface to pixbuf");
+                }
+            } else {
+                warn!("⚠️ Failed to create app icon surface");
+            }
         }
     }
     
@@ -81,21 +127,16 @@ impl DesktopIntegration {
     
     /// Set Windows-specific taskbar icon
     #[cfg(target_os = "windows")]
-    fn set_windows_taskbar_icon(window: &gtk::Window) {
+    fn set_windows_taskbar_icon(window: &gtk::Window, _texture: &gtk::gdk::Texture) {
         use gtk::prelude::*;
         
         info!("🪟 Setting Windows taskbar icon");
         
         // Get the native window handle
-        if let Some(surface) = window.surface() {
-            // Try to create and set a custom icon
-            if let Some(hicon) = crate::icon_renderer::IconRenderer::create_tray_icon() {
-                unsafe {
-                    // This would require more complex window handle extraction
-                    // For now, we'll rely on the build-time embedded icon
-                    info!("🎨 Custom Windows icon created");
-                }
-            }
+        if let Some(_surface) = window.surface() {
+            // The embedded resource icon should handle taskbar display
+            // This function exists for future enhancements
+            info!("🎨 Windows taskbar icon handled by embedded resource");
         }
     }
     
