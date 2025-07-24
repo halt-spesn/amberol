@@ -128,21 +128,20 @@ impl IconHijacker {
                     }
                 }
                 
-                // Method 3: Try to force icon theme to have our icon
-                if let Some(display) = gtk::prelude::WidgetExt::display(window) {
-                    let icon_theme = gtk::IconTheme::for_display(&display);
-                    let search_paths = icon_theme.search_path();
-                    info!("🔍 Icon theme search paths: {:?}", search_paths);
+                                // Method 3: Try to force icon theme to have our icon
+                let display = gtk::prelude::WidgetExt::display(window);
+                let icon_theme = gtk::IconTheme::for_display(&display);
+                let search_paths = icon_theme.search_path();
+                info!("🔍 Icon theme search paths: {:?}", search_paths);
+                
+                // Check if icon theme can find our icon
+                if icon_theme.has_icon(icon_name) {
+                    info!("✅ Icon theme HAS icon: {}", icon_name);
+                } else {
+                    warn!("❌ Icon theme MISSING icon: {}", icon_name);
                     
-                    // Check if icon theme can find our icon
-                    if icon_theme.has_icon(icon_name) {
-                        info!("✅ Icon theme HAS icon: {}", icon_name);
-                    } else {
-                        warn!("❌ Icon theme MISSING icon: {}", icon_name);
-                        
-                        // Force add a search path with our icon
-                        Self::force_create_window_icon(icon_name, &icon_theme);
-                    }
+                    // Force add a search path with our icon
+                    Self::force_create_window_icon(icon_name, &icon_theme);
                 }
                 
                 info!("🚨 FORCED window icon: {} for window: {:?}", icon_name, window.title());
