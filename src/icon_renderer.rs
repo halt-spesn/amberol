@@ -308,22 +308,44 @@ impl IconRenderer {
         info!("🎨 Creating Windows tray icon");
         
         // Try to load from the existing ICO file first
-        let ico_path = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
+        let possible_paths = [
+            "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
+            "./data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
+            "../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
+            "../../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
+            // Also try from binary location
+            "io.bassi.Amberol.ico",
+            "./io.bassi.Amberol.ico",
+        ];
         
         // Check current working directory for debugging
         if let Ok(cwd) = std::env::current_dir() {
             info!("🔍 Current working directory: {:?}", cwd);
         }
         
-        let ico_path_buf = std::path::Path::new(ico_path);
-        if ico_path_buf.exists() {
-            info!("📁 Loading tray icon from existing ICO file: {}", ico_path);
+        // Try each possible path
+        let mut ico_path_buf = None;
+        let mut found_path = String::new();
+        
+        for &path in &possible_paths {
+            let path_buf = std::path::Path::new(path);
+            info!("🔍 Checking path: {}", path);
+            if path_buf.exists() {
+                info!("✅ Found ICO file at: {}", path);
+                ico_path_buf = Some(path_buf);
+                found_path = path.to_string();
+                break;
+            }
+        }
+        
+        if let Some(ico_path_buf) = ico_path_buf {
+            info!("📁 Loading tray icon from existing ICO file: {}", found_path);
             
             // Try to get absolute path for better reliability
             let absolute_path = if let Ok(abs_path) = ico_path_buf.canonicalize() {
                 abs_path.to_string_lossy().to_string()
             } else {
-                ico_path.to_string()
+                found_path.clone()
             };
             
             info!("🔍 Using path: {}", absolute_path);
@@ -359,11 +381,18 @@ impl IconRenderer {
                 }
             }
         } else {
-            warn!("⚠️ ICO file not found at: {}", ico_path);
+            warn!("⚠️ ICO file not found in any of the expected locations:");
+            for &path in &possible_paths {
+                warn!("⚠️   Tried: {}", path);
+            }
             if let Ok(cwd) = std::env::current_dir() {
                 warn!("⚠️ Working directory: {:?}", cwd);
-                let full_path = cwd.join(ico_path);
-                warn!("⚠️ Full path would be: {:?}", full_path);
+            }
+            
+            // Try to load from embedded data as last resort
+            if let Some(hicon) = Self::create_tray_icon_from_embedded() {
+                info!("✅ Using embedded ICO data for tray icon");
+                return Some(hicon);
             }
         }
         
@@ -473,10 +502,46 @@ impl IconRenderer {
                 None
             } else {
                 info!("✅ Successfully created Windows tray icon");
-                Some(hicon)
+                        Some(hicon)
+    }
+    
+    /// Create tray icon from embedded ICO data
+    #[cfg(target_os = "windows")]
+    fn create_tray_icon_from_embedded() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        use windows::Win32::Graphics::Gdi::*;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        
+        info!("🎨 Creating tray icon from embedded ICO data");
+        
+        // Embed the ICO file data at compile time
+        let ico_data = include_bytes!("../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico");
+        
+        unsafe {
+            // Try to create icon from memory
+            let hicon_result = CreateIconFromResource(
+                ico_data.as_ptr(),
+                ico_data.len() as u32,
+                true.into(), // fIcon (true for icon, false for cursor)
+                0x00030000,  // dwVersion (3.0)
+            );
+            
+            match hicon_result {
+                Ok(hicon) => {
+                    if !hicon.is_invalid() {
+                        info!("✅ Successfully created tray icon from embedded data");
+                        return Some(hicon);
+                    } else {
+                        warn!("⚠️ CreateIconFromResource returned invalid handle");
+                    }
+                }
+                Err(e) => {
+                    warn!("⚠️ CreateIconFromResource failed: {:?}", e);
+                }
             }
         }
-    }
+        
+                 None
+     }
     
     /// Create an ICO file for the executable
     pub fn create_executable_ico_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
