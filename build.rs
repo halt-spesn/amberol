@@ -13,12 +13,12 @@ fn main() {
         // Use appropriate linker arguments based on the target
         if cfg!(target_env = "msvc") {
             // MSVC linker - compile and link resource file
-            compile_resource_file();
             println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
+            compile_resource_file();
         } else {
             // MinGW/GNU linker - compile and link resource file
-            compile_resource_file();
             println!("cargo:rustc-link-arg=-Wl,--subsystem,windows");
+            compile_resource_file();
         }
         
         // Use the existing ICO file or generate one if it doesn't exist
@@ -167,38 +167,47 @@ fn is_music_note_pixel(x: u32, y: u32, size: u32) -> bool {
 /// Compile Windows resource file to embed icon and version info
 fn compile_resource_file() {
     let rc_file = "icon.rc";
-    let res_file = "icon.res";
     
     if !Path::new(rc_file).exists() {
         println!("cargo:warning=Resource file {} not found, skipping", rc_file);
         return;
     }
     
-    // Try to compile the resource file
-    let output = if cfg!(target_env = "msvc") {
-        // Use MSVC resource compiler
-        std::process::Command::new("rc")
-            .args(&["/fo", res_file, rc_file])
-            .output()
+    // Different output files and commands for different toolchains
+    let (output_file, command, args) = if cfg!(target_env = "msvc") {
+        // MSVC: Use rc.exe to create .res file
+        ("icon.res", "rc", vec!["/fo", "icon.res", rc_file])
     } else {
-        // Use MinGW resource compiler
-        std::process::Command::new("windres")
-            .args(&["-i", rc_file, "-o", res_file])
-            .output()
+        // MinGW: Use windres to create .o file
+        ("icon.o", "windres", vec!["-i", rc_file, "-o", "icon.o"])
     };
+    
+    // Try to compile the resource file
+    let output = std::process::Command::new(command)
+        .args(&args)
+        .output();
     
     match output {
         Ok(result) => {
             if result.status.success() {
-                println!("cargo:rustc-link-arg={}", res_file);
-                println!("cargo:warning=Successfully compiled resource file");
+                // Only add the link argument if compilation was successful
+                if std::path::Path::new(output_file).exists() {
+                    println!("cargo:rustc-link-arg={}", output_file);
+                    println!("cargo:warning=Successfully compiled and linked resource file: {}", output_file);
+                } else {
+                    println!("cargo:warning=Resource compilation reported success but {} not found", output_file);
+                }
             } else {
-                println!("cargo:warning=Failed to compile resource file: {}", 
-                    String::from_utf8_lossy(&result.stderr));
+                println!("cargo:warning=Failed to compile resource file:");
+                println!("cargo:warning=  Command: {} {:?}", command, args);
+                println!("cargo:warning=  stderr: {}", String::from_utf8_lossy(&result.stderr));
+                println!("cargo:warning=  stdout: {}", String::from_utf8_lossy(&result.stdout));
+                println!("cargo:warning=Continuing build without resource file...");
             }
         }
         Err(e) => {
-            println!("cargo:warning=Resource compiler not found: {}. Icon embedding skipped.", e);
+            println!("cargo:warning=Resource compiler '{}' not available: {}. Skipping icon embedding.", command, e);
+            println!("cargo:warning=Install MinGW-w64 development tools for icon embedding support.");
         }
     }
 }
