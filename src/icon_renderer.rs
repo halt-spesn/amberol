@@ -540,8 +540,8 @@ impl IconRenderer {
             }
         }
         
-                 None
-     }
+        None
+    }
     
     /// Create an ICO file for the executable
     pub fn create_executable_ico_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
