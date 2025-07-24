@@ -13,13 +13,50 @@ impl IconThemeProvider {
     pub fn setup_global_override() {
         info!("🎨 Setting up direct icon replacement system");
         
-        // Create icon replacements immediately
+        // Create icon replacements immediately and aggressively
         Self::setup_direct_icon_replacements();
         
-        // Also setup the theme-based approach as backup
+        // Setup the theme-based approach as backup
         Self::setup_theme_based_replacements();
         
+        // Force create all icons immediately
+        Self::force_create_all_icons();
+        
         info!("✅ Icon replacement system setup complete");
+    }
+    
+    /// Force create all icons immediately in multiple locations
+    fn force_create_all_icons() {
+        info!("🎯 Force creating all icons in multiple locations");
+        
+        // Create icons in multiple theme directories for maximum coverage
+        let icon_dirs = vec![
+            std::env::temp_dir().join("amberol-icons"),
+            std::env::temp_dir().join("hicolor").join("scalable").join("apps"),
+            std::env::temp_dir().join("hicolor").join("16x16").join("apps"),
+            std::env::temp_dir().join("hicolor").join("24x24").join("apps"),
+            std::env::temp_dir().join("hicolor").join("32x32").join("apps"),
+            std::env::temp_dir().join("hicolor").join("48x48").join("apps"),
+        ];
+        
+        for icon_dir in &icon_dirs {
+            let _ = std::fs::create_dir_all(icon_dir);
+            Self::generate_missing_icons(icon_dir);
+        }
+        
+        // Also add all these directories to the icon theme search path
+        if let Some(display) = gdk::Display::default() {
+            let icon_theme = gtk::IconTheme::for_display(&display);
+            for icon_dir in &icon_dirs {
+                icon_theme.add_search_path(icon_dir);
+            }
+            
+            // Force the icon theme to refresh
+            // GTK doesn't provide a direct refresh method, but adding the same path twice can trigger it
+            for icon_dir in &icon_dirs {
+                icon_theme.add_search_path(icon_dir);
+            }
+        }
     }
     
     /// Setup direct icon replacements by modifying the default icon theme
@@ -108,11 +145,35 @@ impl IconThemeProvider {
                 
                 // Force icon theme to reload
                 icon_theme.add_search_path(&custom_icons_dir); // Add twice to trigger refresh
-            }
-        }
-    }
-    
-    /// Generate missing icons as SVG files in the custom icons directory
+                       }
+       }
+   }
+   
+   /// Force create icons needed for the about dialog
+   pub fn force_create_about_icons() {
+       info!("🎯 Force creating about dialog icons");
+       
+       // Create icons in temp directory with highest priority
+       let icon_dir = std::env::temp_dir().join("amberol-about-icons");
+       let _ = std::fs::create_dir_all(&icon_dir);
+       
+       // Generate the specific icons needed for about dialog
+       Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol");
+       Self::generate_icon_svg(&icon_dir, "io.bassi.Amberol.Devel");
+       Self::generate_icon_svg(&icon_dir, "web-browser-symbolic");
+       Self::generate_icon_svg(&icon_dir, "bug-symbolic");
+       
+       // Add to icon theme with highest priority
+       if let Some(display) = gdk::Display::default() {
+           let icon_theme = gtk::IconTheme::for_display(&display);
+           icon_theme.add_search_path(&icon_dir);
+           // Add twice to trigger refresh
+           icon_theme.add_search_path(&icon_dir);
+           info!("📁 Added about dialog icon path: {:?}", icon_dir);
+       }
+   }
+   
+   /// Generate missing icons as SVG files in the custom icons directory
     fn generate_missing_icons(icons_dir: &std::path::Path) {
         let icons_to_generate = [
             "io.bassi.Amberol",

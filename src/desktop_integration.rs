@@ -16,6 +16,48 @@ use windows::Win32::{
 pub struct DesktopIntegration;
 
 impl DesktopIntegration {
+    /// Force create taskbar icons in system directories
+    fn force_create_taskbar_icons() {
+        info!("🎯 Force creating taskbar icons in system directories");
+        
+        // Try to create icons in standard system locations
+        let icon_dirs = vec![
+            "/usr/share/icons/hicolor/scalable/apps".to_string(),
+            "/usr/local/share/icons/hicolor/scalable/apps".to_string(),
+            format!("{}/.local/share/icons/hicolor/scalable/apps", std::env::var("HOME").unwrap_or_default()),
+            format!("{}/.icons/hicolor/scalable/apps", std::env::var("HOME").unwrap_or_default()),
+        ];
+        
+        // Also add temp directories
+        let temp_dirs = vec![
+            std::env::temp_dir().join("hicolor").join("scalable").join("apps"),
+            std::env::temp_dir().join("amberol-taskbar-icons"),
+        ];
+        
+        // Generate SVG icons in all possible locations
+        for dir_path in &icon_dirs {
+            let path = std::path::Path::new(dir_path);
+            if let Ok(()) = std::fs::create_dir_all(path) {
+                Self::create_svg_icon(path, "io.bassi.Amberol");
+                info!("📁 Created taskbar icon in: {}", dir_path);
+            }
+        }
+        
+        for dir_path in &temp_dirs {
+            let _ = std::fs::create_dir_all(dir_path);
+            Self::create_svg_icon(dir_path, "io.bassi.Amberol");
+            info!("📁 Created taskbar icon in: {:?}", dir_path);
+        }
+        
+        // Add temp directories to icon theme
+        if let Some(display) = gdk::Display::default() {
+            let icon_theme = gtk::IconTheme::for_display(&display);
+            for dir_path in &temp_dirs {
+                icon_theme.add_search_path(dir_path);
+            }
+        }
+    }
+
     /// Set up desktop integration including taskbar icons and tray icons
     pub fn setup_integration(app: &crate::application::Application) {
         info!("🖥️ Setting up desktop integration");
@@ -32,6 +74,9 @@ impl DesktopIntegration {
         /// Set the application icon for taskbar visibility
     fn setup_app_icon(app: &crate::application::Application) {
         info!("🎨 Setting up programmatic application icon for taskbar");
+        
+        // Force create icon theme files first
+        Self::force_create_taskbar_icons();
         
         // Always use programmatic icon for consistency
         if let Some(mut icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {

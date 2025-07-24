@@ -252,6 +252,8 @@ impl Application {
             #[weak(rename_to = this)]
             self,
             move |_, _| {
+                // Ensure icons are available before showing about dialog
+                crate::icon_theme_provider::IconThemeProvider::force_create_about_icons();
                 this.show_about();
             }
         ));

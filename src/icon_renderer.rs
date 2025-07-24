@@ -567,6 +567,61 @@ impl IconRenderer {
         None
     }
     
+    /// Create tray icon with programmatic fallback 
+    #[cfg(target_os = "windows")]
+    pub fn create_tray_icon_fallback() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        info!("🎨 Creating programmatic fallback tray icon");
+        
+        // Create a simple programmatic icon as fallback
+        if let Some(mut surface) = Self::create_app_icon_surface(32) {
+            // Convert surface to Windows HICON
+            Self::surface_to_hicon(&mut surface)
+        } else {
+            None
+        }
+    }
+    
+    /// Convert Cairo surface to Windows HICON
+    #[cfg(target_os = "windows")]
+    fn surface_to_hicon(surface: &mut gtk::cairo::ImageSurface) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        use windows::Win32::Graphics::Gdi::*;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        
+        let width = surface.width();
+        let height = surface.height();
+        
+        if let Ok(data) = surface.data() {
+            // Create HICON from surface data (simplified approach)
+            unsafe {
+                // This is a simplified approach - in a full implementation you'd need
+                // to properly convert RGBA to the Windows icon format
+                let hicon_result = CreateIcon(
+                    None,
+                    width,
+                    height,
+                    1,  // planes
+                    32, // bits per pixel
+                    None, // AND mask (None = no transparency mask)
+                    Some(data.as_ptr()), // XOR bitmap data
+                );
+                
+                match hicon_result {
+                    Ok(hicon) => {
+                        if !hicon.is_invalid() {
+                            info!("✅ Created fallback tray icon from surface");
+                            return Some(hicon);
+                        }
+                    }
+                    Err(e) => {
+                        warn!("⚠️ CreateIcon failed: {:?}", e);
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+    
     /// Create an ICO file for the executable
     pub fn create_executable_ico_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
         info!("🎨 Creating executable ICO file at: {}", path);

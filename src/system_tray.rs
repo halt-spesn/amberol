@@ -121,14 +121,18 @@ pub mod windows_tray {
                     uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
                     uCallbackMessage: WM_TRAYICON,
                     hIcon: {
-                        // Try to use our custom tray icon, fallback to default
+                        // Try to use our custom tray icon with multiple fallbacks
                         use crate::icon_renderer::IconRenderer;
                         if let Some(custom_icon) = IconRenderer::create_tray_icon() {
                             info!("🎨 Using custom tray icon");
                             self.custom_icon = Some(custom_icon);
                             custom_icon
+                        } else if let Some(fallback_icon) = IconRenderer::create_tray_icon_fallback() {
+                            info!("🎨 Using fallback programmatic tray icon");
+                            self.custom_icon = Some(fallback_icon);
+                            fallback_icon
                         } else {
-                            warn!("⚠️ Failed to create custom tray icon, using default");
+                            warn!("⚠️ All custom tray icon methods failed, using system default");
                             LoadIconW(None, IDI_APPLICATION)?
                         }
                     },
