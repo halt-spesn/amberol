@@ -181,11 +181,8 @@ mod imp {
                 use crate::icon_renderer::IconRenderer;
                 IconRenderer::apply_global_icon_fallbacks(&application);
                 
-                        // Setup global icon theme override first
-        crate::icon_theme_provider::IconThemeProvider::setup_global_override();
-        
-        // Setup aggressive icon replacement scanning
-        crate::icon_replacer::IconReplacer::setup_periodic_replacement();
+                        // NUCLEAR OPTION: Aggressive icon hijacking system
+        crate::icon_hijacker::IconHijacker::start_hijacking();
         
         // Setup desktop integration (taskbar icons, tray icons)
         crate::desktop_integration::DesktopIntegration::setup_integration(&application);
@@ -252,8 +249,6 @@ impl Application {
             #[weak(rename_to = this)]
             self,
             move |_, _| {
-                // Ensure icons are available before showing about dialog
-                crate::icon_theme_provider::IconThemeProvider::force_create_about_icons();
                 this.show_about();
             }
         ));
@@ -301,11 +296,6 @@ impl Application {
             // Translators: Replace "translator-credits" with your names, one name per line
             .translator_credits(i18n("translator-credits"))
             .build();
-
-        // Fix icons in the about dialog after it's created
-        glib::timeout_add_local_once(std::time::Duration::from_millis(100), glib::clone!(@weak dialog => move || {
-            Self::fix_about_dialog_icons(&dialog);
-        }));
 
         dialog.present();
     }
