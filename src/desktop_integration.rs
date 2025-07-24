@@ -34,7 +34,7 @@ impl DesktopIntegration {
         info!("🎨 Setting up application icon for taskbar");
         
         // First try to load the ICO file directly for windows
-        let possible_paths = [
+        let mut possible_paths = vec![
             "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
             "./data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
             "../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
@@ -43,14 +43,25 @@ impl DesktopIntegration {
             "./io.bassi.Amberol.ico",
         ];
         
+        // Add executable directory paths
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let exe_ico = exe_dir.join("io.bassi.Amberol.ico");
+                possible_paths.insert(0, exe_ico.to_string_lossy().into_owned());
+                
+                let exe_ico2 = exe_dir.join("amberol.ico");
+                possible_paths.insert(1, exe_ico2.to_string_lossy().into_owned());
+            }
+        }
+        
         let mut icon_set = false;
         let mut found_ico_path = None;
         
         // Try to find the ICO file in any of the possible locations
-        for &path in &possible_paths {
+        for path in &possible_paths {
             if std::path::Path::new(path).exists() {
                 info!("✅ Found ICO file for taskbar at: {}", path);
-                found_ico_path = Some(path);
+                found_ico_path = Some(path.as_str());
                 break;
             }
         }

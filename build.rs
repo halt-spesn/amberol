@@ -35,6 +35,19 @@ fn main() {
                 });
             } else {
                 println!("cargo:warning=Using existing app icon: {}", ico_source);
+                
+                // Also copy to target directory for runtime access
+                let target_dir = std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string());
+                let runtime_ico = format!("{}/io.bassi.Amberol.ico", target_dir);
+                let _ = std::fs::copy(ico_source, &runtime_ico);
+                println!("cargo:warning=Copied ICO to runtime location: {}", runtime_ico);
+                
+                // Copy to the final output directory as well
+                if let Ok(profile) = std::env::var("PROFILE") {
+                    let output_ico = format!("target/{}/io.bassi.Amberol.ico", profile);
+                    let _ = std::fs::copy(ico_source, &output_ico);
+                    println!("cargo:warning=Copied ICO to output directory: {}", output_ico);
+                }
             }
         } else {
             println!("cargo:warning=ICO file not found at {}, generating programmatic icon", ico_source);

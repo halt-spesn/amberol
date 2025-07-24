@@ -308,7 +308,7 @@ impl IconRenderer {
         info!("🎨 Creating Windows tray icon");
         
         // Try to load from the existing ICO file first
-        let possible_paths = [
+        let mut possible_paths = vec![
             "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
             "./data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
             "../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
@@ -317,6 +317,17 @@ impl IconRenderer {
             "io.bassi.Amberol.ico",
             "./io.bassi.Amberol.ico",
         ];
+        
+        // Add executable directory path
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let exe_ico = exe_dir.join("io.bassi.Amberol.ico");
+                possible_paths.insert(0, exe_ico.to_string_lossy().into_owned());
+                
+                let exe_ico2 = exe_dir.join("amberol.ico");
+                possible_paths.insert(1, exe_ico2.to_string_lossy().into_owned());
+            }
+        }
         
         // Check current working directory for debugging
         if let Ok(cwd) = std::env::current_dir() {
@@ -327,13 +338,13 @@ impl IconRenderer {
         let mut ico_path_buf = None;
         let mut found_path = String::new();
         
-        for &path in &possible_paths {
+        for path in &possible_paths {
             let path_buf = std::path::Path::new(path);
             info!("🔍 Checking path: {}", path);
             if path_buf.exists() {
                 info!("✅ Found ICO file at: {}", path);
                 ico_path_buf = Some(path_buf);
-                found_path = path.to_string();
+                found_path = path.clone();
                 break;
             }
         }
@@ -382,7 +393,7 @@ impl IconRenderer {
             }
         } else {
             warn!("⚠️ ICO file not found in any of the expected locations:");
-            for &path in &possible_paths {
+            for path in &possible_paths {
                 warn!("⚠️   Tried: {}", path);
             }
             if let Ok(cwd) = std::env::current_dir() {
