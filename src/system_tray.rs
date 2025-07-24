@@ -263,8 +263,9 @@ pub mod windows_tray {
             
             DestroyMenu(hmenu);
         }
-        
-        impl Drop for SystemTray {
+    }
+    
+    impl Drop for SystemTray {
         fn drop(&mut self) {
             info!("🗑️ Removing system tray icon");
             unsafe {
