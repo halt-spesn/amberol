@@ -8,7 +8,7 @@ use adw::subclass::prelude::*;
 use ashpd::{desktop::background::Background, WindowIdentifier};
 use async_channel::Receiver;
 use glib::clone;
-use gtk::{gio, glib, prelude::*};
+use gtk::{gdk, gio, glib, prelude::*};
 use log::{debug, info, warn, error};
 
 use crate::{
@@ -381,9 +381,9 @@ impl Application {
                 if let Some(icon_name) = image.icon_name() {
                     if Self::should_fix_icon(&icon_name) {
                         info!("🎨 Fixing image icon: {}", icon_name);
-                        if let Some(texture) = Self::create_icon_texture(&icon_name) {
-                            image.set_from_paintable(Some(&texture));
-                        }
+                                                 if let Some(texture) = Self::create_icon_texture(&icon_name) {
+                             image.set_paintable(Some(&texture));
+                         }
                     }
                 }
             }
@@ -394,10 +394,10 @@ impl Application {
                         for name in names {
                             if Self::should_fix_icon(&name) {
                                 info!("🎨 Fixing GIcon: {}", name);
-                                if let Some(texture) = Self::create_icon_texture(&name) {
-                                    image.set_from_paintable(Some(&texture));
-                                    break;
-                                }
+                                                                 if let Some(texture) = Self::create_icon_texture(&name) {
+                                     image.set_paintable(Some(&texture));
+                                     break;
+                                 }
                             }
                         }
                     }
