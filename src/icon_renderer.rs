@@ -521,10 +521,9 @@ impl IconRenderer {
         unsafe {
             // Try to create icon from memory
             let hicon_result = CreateIconFromResource(
-                ico_data.as_ptr(),
-                ico_data.len() as u32,
-                true.into(), // fIcon (true for icon, false for cursor)
-                0x00030000,  // dwVersion (3.0)
+                ico_data,        // presbits: &[u8]
+                true.into(),     // fIcon (true for icon, false for cursor)
+                0x00030000,      // dwVersion (3.0)
             );
             
             match hicon_result {
