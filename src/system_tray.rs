@@ -173,8 +173,6 @@ pub mod windows_tray {
                                 } else {
                                     warn!("⚠️ Could not find GApplication to activate");
                                 }
-                                
-                                glib::ControlFlow::Continue
                             });
                         }
                         WM_RBUTTONUP => {
@@ -196,7 +194,6 @@ pub mod windows_tray {
                                 if let Some(app) = gtk::gio::Application::default() {
                                     app.activate();
                                 }
-                                glib::ControlFlow::Continue
                             });
                         }
                         1002 => {
@@ -207,7 +204,6 @@ pub mod windows_tray {
                                     app.quit();
                                     info!("📱 Application quit requested");
                                 }
-                                glib::ControlFlow::Continue
                             });
                         }
                         _ => {}
@@ -224,30 +220,33 @@ pub mod windows_tray {
         
         /// Show context menu for tray icon
         unsafe fn show_context_menu(hwnd: HWND) {
-            let hmenu = CreatePopupMenu();
-            if hmenu.is_invalid() {
-                warn!("Failed to create popup menu");
-                return;
-            }
+            let hmenu = match CreatePopupMenu() {
+                Ok(menu) => menu,
+                Err(e) => {
+                    warn!("Failed to create popup menu: {}", e);
+                    return;
+                }
+            };
             
             // Add menu items
             let restore_text: Vec<u16> = "Show Amberol\0".encode_utf16().collect();
             let quit_text: Vec<u16> = "Quit\0".encode_utf16().collect();
             
-            AppendMenuW(hmenu, MF_STRING, 1001, windows::core::PCWSTR(restore_text.as_ptr()));
-            AppendMenuW(hmenu, MF_STRING, 1002, windows::core::PCWSTR(quit_text.as_ptr()));
+            let _ = AppendMenuW(hmenu, MF_STRING, 1001, windows::core::PCWSTR(restore_text.as_ptr()));
+            let _ = AppendMenuW(hmenu, MF_STRING, 1002, windows::core::PCWSTR(quit_text.as_ptr()));
             
             // Get cursor position
             let mut pt = POINT { x: 0, y: 0 };
-            GetCursorPos(&mut pt);
+            let _ = GetCursorPos(&mut pt);
             
             // Required for proper menu behavior
-            SetForegroundWindow(hwnd);
+            let _ = SetForegroundWindow(hwnd);
             
             // Show menu and get selection
-            let cmd = TrackPopupMenu(
+            // Without TPM_RETURNCMD, menu selections will be sent as WM_COMMAND messages
+            let _ = TrackPopupMenu(
                 hmenu,
-                TPM_RIGHTBUTTON | TPM_RETURNCMD,
+                TPM_RIGHTBUTTON,
                 pt.x,
                 pt.y,
                 0,
@@ -255,13 +254,7 @@ pub mod windows_tray {
                 None,
             );
             
-            // Handle menu selection
-            if cmd != 0 {
-                use windows::Win32::UI::WindowsAndMessaging::SendMessageW;
-                SendMessageW(hwnd, WM_COMMAND, WPARAM(cmd as usize), LPARAM(0));
-            }
-            
-            DestroyMenu(hmenu);
+            let _ = DestroyMenu(hmenu);
         }
     }
     
