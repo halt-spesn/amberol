@@ -309,13 +309,13 @@ impl IconRenderer {
         
         // Try to load from the existing ICO file first
         let mut possible_paths = vec![
-            "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
-            "./data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
-            "../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
-            "../../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico",
+            "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico".to_string(),
+            "./data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico".to_string(),
+            "../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico".to_string(),
+            "../../data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico".to_string(),
             // Also try from binary location
-            "io.bassi.Amberol.ico",
-            "./io.bassi.Amberol.ico",
+            "io.bassi.Amberol.ico".to_string(),
+            "./io.bassi.Amberol.ico".to_string(),
         ];
         
         // Add executable directory path
