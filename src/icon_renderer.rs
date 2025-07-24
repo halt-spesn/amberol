@@ -502,7 +502,9 @@ impl IconRenderer {
                 None
             } else {
                 info!("✅ Successfully created Windows tray icon");
-                        Some(hicon)
+                Some(hicon)
+            }
+        }
     }
     
     /// Create tray icon from embedded ICO data
