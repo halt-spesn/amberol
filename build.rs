@@ -8,7 +8,17 @@ fn main() {
     
     // Only generate icons for Windows builds
     if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
+        // Use appropriate linker arguments based on the target
+        if cfg!(target_env = "msvc") {
+            // MSVC linker
+            println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
+            println!("cargo:rustc-link-arg=/ICON:amberol.ico");
+        } else {
+            // MinGW/GNU linker
+            println!("cargo:rustc-link-arg=-Wl,--subsystem,windows");
+            // Note: MinGW doesn't support embedding icons via linker args
+            // The icon would need to be embedded via a resource file (.rc)
+        }
         
         // Generate the icon file if it doesn't exist
         if !Path::new("amberol.ico").exists() {
@@ -16,9 +26,6 @@ fn main() {
                 println!("cargo:warning=Failed to generate app icon: {}", e);
             });
         }
-        
-        // Tell cargo to embed the icon
-        println!("cargo:rustc-link-arg=/ICON:amberol.ico");
     }
 }
 
