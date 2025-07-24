@@ -200,7 +200,7 @@ impl IconReplacer {
     }
     
     // Simple drawing functions for different icon types
-    fn draw_app_icon(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_app_icon(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Musical note
         cr.arc(s * 0.2, s * 0.8, s * 0.1, 0.0, 2.0 * std::f64::consts::PI);
@@ -215,7 +215,7 @@ impl IconReplacer {
         true
     }
     
-    fn draw_web_browser(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_web_browser(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Globe
         cr.arc(s * 0.5, s * 0.5, s * 0.35, 0.0, 2.0 * std::f64::consts::PI);
@@ -229,7 +229,7 @@ impl IconReplacer {
         true
     }
     
-    fn draw_bug(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_bug(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Bug body
         cr.arc(s * 0.5, s * 0.5, s * 0.25, 0.0, 2.0 * std::f64::consts::PI);
@@ -246,7 +246,7 @@ impl IconReplacer {
         true
     }
     
-    fn draw_search(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_search(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Magnifying glass
         cr.arc(s * 0.4, s * 0.4, s * 0.2, 0.0, 2.0 * std::f64::consts::PI);
@@ -257,7 +257,7 @@ impl IconReplacer {
         true
     }
     
-    fn draw_menu(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_menu(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Hamburger menu
         for i in 0..3 {
@@ -269,11 +269,11 @@ impl IconReplacer {
         true
     }
     
-    fn draw_audio(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_audio(cr: &gtk::cairo::Context, size: i32) -> bool {
         Self::draw_app_icon(cr, size) // Same as app icon (musical note)
     }
     
-    fn draw_folder(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_folder(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Folder
         cr.move_to(s * 0.1, s * 0.3);
@@ -290,7 +290,7 @@ impl IconReplacer {
         true
     }
     
-    fn draw_fallback(cr: &cairo::Context, size: i32) -> bool {
+    fn draw_fallback(cr: &gtk::cairo::Context, size: i32) -> bool {
         let s = size as f64;
         // Question mark
         cr.arc(s * 0.5, s * 0.3, s * 0.1, 0.0, std::f64::consts::PI);
