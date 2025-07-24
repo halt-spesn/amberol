@@ -14,6 +14,7 @@ mod config {
 mod cover_picture;
 mod desktop_integration;
 mod icon_theme_provider;
+mod icon_replacer;
 mod drag_overlay;
 mod i18n;
 mod playback_control;

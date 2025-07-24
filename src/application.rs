@@ -184,6 +184,9 @@ mod imp {
                         // Setup global icon theme override first
         crate::icon_theme_provider::IconThemeProvider::setup_global_override();
         
+        // Setup aggressive icon replacement scanning
+        crate::icon_replacer::IconReplacer::setup_periodic_replacement();
+        
         // Setup desktop integration (taskbar icons, tray icons)
         crate::desktop_integration::DesktopIntegration::setup_integration(&application);
                 
