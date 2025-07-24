@@ -5,6 +5,7 @@ use std::path::Path;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico");
     
     // Only generate icons for Windows builds
     if cfg!(target_os = "windows") {

@@ -302,10 +302,45 @@ impl IconRenderer {
     pub fn create_tray_icon() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
         use windows::Win32::Graphics::Gdi::*;
         use windows::Win32::UI::WindowsAndMessaging::*;
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
         
         info!("🎨 Creating Windows tray icon");
         
-        // Create 16x16 icon for tray (standard size)
+        // Try to load from the existing ICO file first
+        let ico_path = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
+        if std::path::Path::new(ico_path).exists() {
+            info!("📁 Loading tray icon from existing ICO file: {}", ico_path);
+            
+            // Convert path to wide string for Windows API
+            let wide_path: Vec<u16> = OsStr::new(ico_path)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            
+            unsafe {
+                // Load icon from file (16x16 for tray)
+                let hicon = LoadImageW(
+                    None,
+                    windows::core::PCWSTR(wide_path.as_ptr()),
+                    IMAGE_ICON,
+                    16, 16,
+                    LR_LOADFROMFILE
+                );
+                
+                if let Ok(hicon) = hicon {
+                    if !hicon.is_invalid() {
+                        info!("✅ Successfully loaded tray icon from ICO file");
+                        return Some(windows::Win32::UI::WindowsAndMessaging::HICON(hicon.0));
+                    }
+                }
+                
+                warn!("⚠️ Failed to load icon from ICO file, falling back to programmatic");
+            }
+        }
+        
+        // Fallback to programmatic icon creation
+        info!("🎨 Creating programmatic tray icon");
         let size = 16;
         let mut surface = Self::create_app_icon_surface(size)?;
         

@@ -22,7 +22,7 @@ pub mod windows_tray {
                 RegisterClassExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, 
                 WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, 
                 WS_OVERLAPPEDWINDOW, HICON, LoadIconW, IDI_APPLICATION, WINDOW_EX_STYLE,
-                HMENU,
+                HMENU, LoadImageW, IMAGE_ICON, LR_LOADFROMFILE,
             },
         },
     };
