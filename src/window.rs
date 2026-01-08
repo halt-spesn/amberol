@@ -17,7 +17,7 @@ use crate::{
     config::APPLICATION_ID,
     drag_overlay::DragOverlay,
     i18n::{i18n, i18n_k, ni18n_f, ni18n_k},
-    icon_renderer::IconRenderer,
+
     playback_control::PlaybackControl,
     playlist_view::PlaylistView,
     queue_row::QueueRow,
@@ -224,6 +224,40 @@ mod imp {
 
             if APPLICATION_ID.ends_with("Devel") {
                 self.obj().add_css_class("devel");
+            }
+            
+            // Set up icon theme on Windows when window is created
+            #[cfg(target_os = "windows")]
+            {
+                use log::{info, debug};
+                
+                if let Some(display) = self.obj().display().into() {
+                    let icon_theme = gtk::IconTheme::for_display(&display);
+                    
+                    // Add our bundled icons directory to search path
+                    if let Ok(exe_path) = std::env::current_exe() {
+                        if let Some(exe_dir) = exe_path.parent() {
+                            // exe is in dist-windows/bin, icons are in dist-windows/share/icons
+                            let dist_dir = exe_dir.parent().unwrap_or(exe_dir);
+                            let icons_dir = dist_dir.join("share").join("icons");
+                            
+                            if icons_dir.exists() {
+                                info!("📁 Window: Adding icon search path: {:?}", icons_dir);
+                                icon_theme.add_search_path(&icons_dir);
+                            }
+                        }
+                    }
+                    
+                    // Ensure Adwaita theme is set
+                    icon_theme.set_theme_name(Some("Adwaita"));
+                    
+                    // Debug: check icons
+                    let test_icons = ["media-playback-start-symbolic", "media-playlist-shuffle-symbolic", "selection-mode-symbolic"];
+                    for icon_name in test_icons {
+                        let has_icon = icon_theme.has_icon(icon_name);
+                        debug!("  {} icon '{}': {}", if has_icon { "✅" } else { "❌" }, icon_name, has_icon);
+                    }
+                }
             }
         }
 
@@ -616,11 +650,19 @@ impl Window {
             ) {
                 match info.file_type() {
                     gio::FileType::Regular => {
-                        if let Some(content_type) = info.content_type() {
-                            if gio::content_type_is_mime_type(&content_type, "audio/*") {
-                                debug!("Adding file '{}' to the queue", file.uri());
-                                queue.push(file);
-                            }
+                        // Check MIME type first, then fall back to extension check on Windows
+                        let is_audio = if let Some(content_type) = info.content_type() {
+                            gio::content_type_is_mime_type(&content_type, "audio/*")
+                        } else {
+                            false
+                        };
+                        
+                        // Fallback to extension check
+                        let is_audio = is_audio || utils::is_audio_file(&info);
+                        
+                        if is_audio {
+                            debug!("Adding file '{}' to the queue", file.uri());
+                            queue.push(file);
                         }
                     }
                     gio::FileType::Directory => {
@@ -977,10 +1019,7 @@ impl Window {
             self.set_playlist_shuffled(queue.is_shuffled());
 
             // Manually update the icon on the initial empty state
-            // to avoid generating the UI definition file at build
-            // time
-            // Try programmatic fallback for app icon
-        IconRenderer::set_status_page_icon_with_fallback(&self.imp().status_page, APPLICATION_ID);
+            self.imp().status_page.set_icon_name(Some(APPLICATION_ID));
 
             if utils::has_cached_playlist() {
                 self.imp().restore_playlist_button.set_visible(true);
@@ -1172,8 +1211,7 @@ impl Window {
                 "media-playback-start-symbolic"
             };
             
-            // Use programmatic icons exclusively
-            IconRenderer::set_button_icon_programmatic(&play_button, icon_name);
+            play_button.set_icon_name(icon_name);
         }
     }
 

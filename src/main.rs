@@ -3,19 +3,9 @@
 
 mod application;
 mod audio;
-mod config {
-    pub static VERSION: &str = "2024.2-dev";
-    pub static GETTEXT_PACKAGE: &str = "amberol";
-    pub static LOCALEDIR: &str = "/usr/local/share/locale";
-    pub static PKGDATADIR: &str = "/usr/local/share/amberol";
-    pub static APPLICATION_ID: &str = "io.bassi.Amberol.Devel";
-    pub static PROFILE: &str = "development";
-}
+mod config;
 mod cover_picture;
 mod desktop_integration;
-mod icon_theme_provider;
-mod icon_replacer;
-mod icon_hijacker;
 mod drag_overlay;
 mod i18n;
 mod playback_control;

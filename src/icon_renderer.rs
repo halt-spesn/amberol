@@ -470,37 +470,49 @@ impl IconRenderer {
             }
             
             // Copy Cairo surface data to bitmap
+            // Cairo uses premultiplied BGRA, Windows expects premultiplied BGRA for 32-bit icons
             let dest_slice = std::slice::from_raw_parts_mut(bits as *mut u8, (size * size * 4) as usize);
+            
+            // Calculate mask row size (1 bit per pixel, rows must be WORD-aligned)
+            let mask_row_bytes = ((size + 15) / 16) * 2;
+            let mask_size = (mask_row_bytes * size) as usize;
+            let mut mask_bits: Vec<u8> = vec![0u8; mask_size];
+            
             for y in 0..size {
                 let src_offset = (y * stride) as usize;
                 let dst_offset = (y * size * 4) as usize;
                 let row_size = (size * 4) as usize;
                 
                 if src_offset + row_size <= data.len() && dst_offset + row_size <= dest_slice.len() {
-                    // Convert BGRA to RGBA and pre-multiply alpha
                     for x in 0..size {
                         let src_pixel = src_offset + (x * 4) as usize;
                         let dst_pixel = dst_offset + (x * 4) as usize;
                         
                         if src_pixel + 3 < data.len() && dst_pixel + 3 < dest_slice.len() {
-                            let b = data[src_pixel + 0] as f32;
-                            let g = data[src_pixel + 1] as f32;
-                            let r = data[src_pixel + 2] as f32;
-                            let a = data[src_pixel + 3] as f32;
+                            // Copy BGRA directly (already premultiplied from Cairo)
+                            dest_slice[dst_pixel + 0] = data[src_pixel + 0]; // B
+                            dest_slice[dst_pixel + 1] = data[src_pixel + 1]; // G
+                            dest_slice[dst_pixel + 2] = data[src_pixel + 2]; // R
+                            dest_slice[dst_pixel + 3] = data[src_pixel + 3]; // A
                             
-                            // Pre-multiply alpha for Windows
-                            let alpha_norm = a / 255.0;
-                            dest_slice[dst_pixel + 0] = (b * alpha_norm) as u8; // B
-                            dest_slice[dst_pixel + 1] = (g * alpha_norm) as u8; // G
-                            dest_slice[dst_pixel + 2] = (r * alpha_norm) as u8; // R
-                            dest_slice[dst_pixel + 3] = a as u8; // A
+                            // Build mask bitmap: 1 = transparent, 0 = opaque
+                            // If alpha is 0, pixel should be transparent (mask bit = 1)
+                            let alpha = data[src_pixel + 3];
+                            if alpha < 128 {
+                                // Set mask bit to 1 (transparent)
+                                let mask_byte_idx = (y * mask_row_bytes + x / 8) as usize;
+                                let mask_bit = 7 - (x % 8);
+                                if mask_byte_idx < mask_bits.len() {
+                                    mask_bits[mask_byte_idx] |= 1 << mask_bit;
+                                }
+                            }
                         }
                     }
                 }
             }
             
-            // Create mask bitmap (for transparency)
-            let hbm_mask = CreateBitmap(size, size, 1, 1, None);
+            // Create mask bitmap with transparency data
+            let hbm_mask = CreateBitmap(size, size, 1, 1, Some(mask_bits.as_ptr() as *const _));
             
             // Create icon info
             let icon_info = ICONINFO {

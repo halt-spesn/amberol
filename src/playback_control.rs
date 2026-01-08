@@ -3,9 +3,9 @@
 
 use adw::subclass::prelude::*;
 use gtk::{gio, glib, prelude::*, CompositeTemplate};
-use log::{info, warn};
+use log::debug;
 
-use crate::{audio::RepeatMode, i18n::i18n, volume_control::VolumeControl, icon_renderer::IconRenderer};
+use crate::{audio::RepeatMode, i18n::i18n, volume_control::VolumeControl};
 
 mod imp {
     use super::*;
@@ -121,121 +121,8 @@ impl PlaybackControl {
             }
         };
         
-        info!("🎯 Setting repeat button icon: {} (mode: {:?})", icon_name, repeat_mode);
-        
-        // Try to load the icon to verify it exists
-        let icon_theme = gtk::IconTheme::for_display(&repeat_button.display());
-        
-        // Debug icon theme information
-        let theme_name = icon_theme.theme_name();
-        info!("  🎨 Current icon theme: {}", theme_name);
-        let search_paths = icon_theme.search_path();
-        info!("  📂 Icon search paths: {} directories", search_paths.len());
-        for (i, path) in search_paths.iter().take(3).enumerate() {
-            info!("    {}. {:?}", i + 1, path);
-        }
-        
-        // Check if similar icons exist
-        let related_icons = [
-            "media-playlist-consecutive-symbolic",
-            "media-playlist-repeat-symbolic", 
-            "media-playlist-repeat-song-symbolic",
-            "media-playlist-shuffle-symbolic"
-        ];
-        for related_icon in related_icons {
-            let exists = icon_theme.has_icon(related_icon);
-            info!("  🔍 Icon '{}': {}", related_icon, if exists { "✅" } else { "❌" });
-        }
-        
-        if icon_theme.has_icon(icon_name) {
-            info!("  ✅ Icon '{}' found in theme", icon_name);
-            
-            // Try to actually load the icon to see if there are issues
-            let icon_paintable = icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::empty());
-            info!("  🎨 Icon paintable loaded successfully");
-            // Check if it's actually an SVG
-            if let Some(file) = icon_paintable.file() {
-                if let Some(path) = file.path() {
-                    info!("  📁 Icon loaded from: {:?}", path);
-                } else {
-                    info!("  📦 Icon loaded from GResource");
-                }
-            } else {
-                info!("  📦 Icon loaded from memory/builtin");
-            }
-        } else {
-            warn!("  ❌ Icon '{}' NOT found in theme!", icon_name);
-            warn!("     Fallback will be used (may show as missing icon)");
-        }
-        
-        // Use programmatic icon exclusively
-        IconRenderer::set_button_icon_programmatic(&repeat_button, icon_name);
+        debug!("Setting repeat button icon: {}", icon_name);
+        repeat_button.set_icon_name(icon_name);
         repeat_button.set_tooltip_text(Some(&tooltip));
-        
-        // Additional debugging: check what icon was actually set
-        if let Some(actual_icon) = repeat_button.icon_name() {
-            info!("  📋 Button now shows icon: {}", actual_icon);
-        } else {
-            warn!("  ⚠️ Button has no icon name set!");
-        }
-        
-        // Check if the icon is being rendered as "image-missing" fallback
-        let icon_paintable_debug = icon_theme.lookup_icon(icon_name, &[], 16, 1, gtk::TextDirection::None, gtk::IconLookupFlags::empty());
-        if let Some(file) = icon_paintable_debug.file() {
-            if let Some(path) = file.path() {
-                let path_str = path.to_string_lossy();
-                if path_str.contains("image-missing") || path_str.contains("broken") {
-                    warn!("  ⚠️ Icon is falling back to 'image-missing' placeholder!");
-                    warn!("     This means the icon exists but cannot be rendered properly");
-                    warn!("     Likely cause: SVG parsing failure or corrupted icon data");
-                } else {
-                    info!("  📁 Icon resolved to: {}", path_str);
-                }
-            }
-        }
-        
-        // Try alternative loading method for problematic icons  
-        if ["media-playlist-consecutive-symbolic", "media-playlist-repeat-symbolic", "media-playlist-shuffle-symbolic"].contains(&icon_name) {
-            info!("  🔧 Testing direct GResource loading for {}...", icon_name);
-            
-            let resource_path = format!("/io/bassi/Amberol/icons/scalable/actions/{}.svg", icon_name);
-            if let Ok(resource_bytes) = gio::resources_lookup_data(&resource_path, gio::ResourceLookupFlags::NONE) {
-                info!("  📦 Successfully loaded icon data from GResource ({} bytes)", resource_bytes.len());
-                
-                // Try creating a texture from the SVG data
-                match gtk::gdk::Texture::from_bytes(&resource_bytes) {
-                    Ok(_texture) => {
-                        info!("  ✅ SVG data can be parsed as texture - icon should display correctly");
-                    }
-                    Err(e) => {
-                        warn!("  ❌ Failed to parse SVG as texture: {}", e);
-                        warn!("     This confirms the SVG data cannot be rendered by Windows GTK");
-                        warn!("     Trying programmatic icon rendering as fallback...");
-                        
-                        // Try creating a programmatic icon
-                        if let Some(icon_widget) = IconRenderer::create_icon_widget(icon_name) {
-                            info!("  🎨 Successfully created programmatic icon widget!");
-                            info!("     Setting button to use programmatic rendering");
-                            
-                            // Set the drawing area as the button's child
-                            repeat_button.set_child(Some(&icon_widget));
-                            
-                            // Don't set icon_name since we're using a custom widget
-                            repeat_button.set_tooltip_text(Some(&tooltip));
-                            info!("  ✅ Programmatic icon successfully applied to button");
-                            return; // Skip normal icon setting
-                        } else {
-                            warn!("  ❌ Programmatic icon creation also failed");
-                            warn!("     The 'image-missing' fallback will be shown instead");
-                        }
-                    }
-                }
-            } else {
-                warn!("  ❌ Failed to load icon data from GResource: {}", resource_path);
-            }
-        }
-        
-        // Force a redraw to ensure the icon updates
-        repeat_button.queue_draw();
     }
 }

@@ -136,6 +136,37 @@ pub fn load_palette(pixbuf: &gdk_pixbuf::Pixbuf) -> Option<Vec<gdk::RGBA>> {
     None
 }
 
+/// Check if a file is an audio file based on its extension
+/// This is used as a fallback on Windows where MIME type detection may not work
+pub fn is_audio_file(info: &gio::FileInfo) -> bool {
+    const AUDIO_EXTENSIONS: &[&str] = &[
+        "mp3", "flac", "ogg", "opus", "m4a", "aac", "wav", "wma", "aiff", "aif",
+        "ape", "wv", "mpc", "oga", "spx", "mid", "midi", "mod", "s3m", "xm", "it",
+        "mp4", "webm", "mka", "3gp",  // containers that may contain audio
+    ];
+    
+    if let Some(name) = info.name().to_str() {
+        if let Some(ext) = name.rsplit('.').next() {
+            return AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str());
+        }
+    }
+    false
+}
+
+/// Check if a file is an image file (to explicitly exclude)
+fn is_image_file_by_extension(info: &gio::FileInfo) -> bool {
+    const IMAGE_EXTENSIONS: &[&str] = &[
+        "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico", "svg",
+    ];
+    
+    if let Some(name) = info.name().to_str() {
+        if let Some(ext) = name.rsplit('.').next() {
+            return IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str());
+        }
+    }
+    false
+}
+
 fn load_files_from_folder_internal(
     base: &gio::File,
     folder: &gio::File,
@@ -143,7 +174,7 @@ fn load_files_from_folder_internal(
 ) -> Vec<gio::File> {
     let mut enumerator = folder
         .enumerate_children(
-            "standard::name,standard::type",
+            "standard::name,standard::type,standard::content-type",
             gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
             None::<&gio::Cancellable>,
         )
@@ -156,7 +187,19 @@ fn load_files_from_folder_internal(
             let mut res = load_files_from_folder_internal(base, &child, recursive);
             files.append(&mut res);
         } else if info.file_type() == gio::FileType::Regular {
-            files.push(child.clone());
+            // Only add audio files, skip images and other non-audio files
+            let is_audio = if let Some(content_type) = info.content_type() {
+                gio::content_type_is_mime_type(&content_type, "audio/*")
+            } else {
+                false
+            };
+            
+            // Fallback to extension check on Windows where MIME detection may fail
+            let is_audio = is_audio || is_audio_file(&info);
+            
+            if is_audio {
+                files.push(child.clone());
+            }
         }
     }
 

@@ -103,6 +103,41 @@ mod imp {
             error!("Expected schema: {} or fallback: {}", APPLICATION_ID, APPLICATION_ID.replace(".Devel", ""));
             panic!("Cannot initialize application without settings schema");
         }
+        
+        /// Detect Windows dark mode from registry
+        #[cfg(target_os = "windows")]
+        fn detect_windows_dark_mode() -> bool {
+            use std::process::Command;
+            
+            // Query Windows registry for dark mode setting
+            // HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme
+            // Value 0 = dark mode, 1 = light mode
+            let output = Command::new("reg")
+                .args([
+                    "query",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                    "/v",
+                    "AppsUseLightTheme",
+                ])
+                .output();
+            
+            match output {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // If the value is 0x0, dark mode is enabled
+                    if stdout.contains("0x0") {
+                        return true;
+                    }
+                    // If the value is 0x1, light mode is enabled
+                    false
+                }
+                Err(_) => {
+                    // Default to dark mode if we can't detect
+                    info!("Could not detect Windows theme, defaulting to dark mode");
+                    true
+                }
+            }
+        }
     }
 
     impl ObjectImpl for Application {
@@ -125,6 +160,64 @@ mod imp {
             debug!("Application<startup>");
             self.parent_startup();
             let application = self.obj();
+
+            // Set up color scheme - detect Windows dark mode
+            #[cfg(target_os = "windows")]
+            {
+                let style_manager = adw::StyleManager::default();
+                // Check Windows registry for dark mode preference
+                let use_dark = Self::detect_windows_dark_mode();
+                if use_dark {
+                    info!("🌙 Windows dark mode detected, setting dark color scheme");
+                    style_manager.set_color_scheme(adw::ColorScheme::PreferDark);
+                } else {
+                    info!("☀️ Windows light mode detected, setting light color scheme");
+                    style_manager.set_color_scheme(adw::ColorScheme::PreferLight);
+                }
+            }
+            
+            // Set up icon theme explicitly on Windows
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(display) = gdk::Display::default() {
+                    let icon_theme = gtk::IconTheme::for_display(&display);
+                    
+                    // Add our bundled icons directory to search path
+                    if let Ok(exe_path) = std::env::current_exe() {
+                        if let Some(exe_dir) = exe_path.parent() {
+                            let share_dir = exe_dir.parent().unwrap_or(exe_dir);
+                            let icons_dir = share_dir.join("share").join("icons");
+                            
+                            if icons_dir.exists() {
+                                info!("📁 Adding icon search path: {:?}", icons_dir);
+                                icon_theme.add_search_path(&icons_dir);
+                            }
+                            
+                            // Also check if we're running from the bin folder
+                            let alt_icons_dir = exe_dir.join("..").join("share").join("icons");
+                            if alt_icons_dir.exists() {
+                                info!("📁 Adding alternate icon search path: {:?}", alt_icons_dir);
+                                icon_theme.add_search_path(&alt_icons_dir);
+                            }
+                        }
+                    }
+                    
+                    // Set theme name explicitly
+                    icon_theme.set_theme_name(Some("Adwaita"));
+                    info!("🎨 Icon theme set to Adwaita");
+                    
+                    // Debug: list search paths
+                    let search_paths = icon_theme.search_path();
+                    info!("🔍 Icon theme search paths: {:?}", search_paths);
+                    
+                    // Debug: check if specific icons exist
+                    let test_icons = ["media-playback-start-symbolic", "media-playlist-shuffle-symbolic", "selection-mode-symbolic"];
+                    for icon_name in test_icons {
+                        let has_icon = icon_theme.has_icon(icon_name);
+                        info!("  {} icon '{}': {}", if has_icon { "✅" } else { "❌" }, icon_name, has_icon);
+                    }
+                }
+            }
 
             // Set up system tray on Windows
             #[cfg(target_os = "windows")]
@@ -175,18 +268,10 @@ mod imp {
                 }
             }));
             
-            // Replace all asset-based icons with programmatic rendering after a short delay
-            // to ensure all widgets are properly initialized
+            // Setup desktop integration (taskbar icons, tray icons) after a delay
+            #[cfg(target_os = "windows")]
             glib::timeout_add_seconds_local(2, clone!(@weak application => @default-return glib::ControlFlow::Break, move || {
-                use crate::icon_renderer::IconRenderer;
-                IconRenderer::apply_global_icon_fallbacks(&application);
-                
-                        // NUCLEAR OPTION: Aggressive icon hijacking system
-        crate::icon_hijacker::IconHijacker::start_hijacking();
-        
-        // Setup desktop integration (taskbar icons, tray icons)
-        crate::desktop_integration::DesktopIntegration::setup_integration(&application);
-                
+                crate::desktop_integration::DesktopIntegration::setup_integration(&application);
                 glib::ControlFlow::Break // Run only once
             }));
         }
@@ -298,213 +383,6 @@ impl Application {
             .build();
 
         dialog.present();
-    }
-    
-    /// Fix icons in the about dialog by directly replacing them
-    fn fix_about_dialog_icons(dialog: &adw::AboutWindow) {
-        use gtk::prelude::*;
-        info!("🔧 Directly fixing about dialog icons");
-        
-        // Try to find and replace images in the about dialog
-        Self::scan_and_fix_widget_icons(dialog.upcast_ref::<gtk::Widget>());
-        
-        // Also try to set a custom application icon directly if possible
-        if let Some(texture) = Self::create_about_app_icon() {
-            // Unfortunately, AdwAboutWindow doesn't expose a direct way to set the icon
-            // But our widget scanning should catch it
-            info!("✅ Created custom about dialog app icon texture");
-        }
-    }
-    
-    /// Create a custom application icon for the about dialog
-    fn create_about_app_icon() -> Option<gdk::Texture> {
-        if let Some(mut surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(64) {
-            // Convert surface to pixbuf then texture
-            let width = surface.width();
-            let height = surface.height();
-            let stride = surface.stride();
-            
-            if let Ok(data) = surface.data() {
-                let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_bytes(
-                    &glib::Bytes::from(&data[..]),
-                    gtk::gdk_pixbuf::Colorspace::Rgb,
-                    true, // has_alpha
-                    8,    // bits_per_sample
-                    width,
-                    height,
-                    stride,
-                );
-                
-                return Some(gdk::Texture::for_pixbuf(&pixbuf));
-            }
-        }
-        None
-    }
-    
-    /// Recursively scan and fix icons in a widget tree
-    fn scan_and_fix_widget_icons(widget: &gtk::Widget) {
-        // Check if this widget is an Image that might need fixing
-        if let Some(image) = widget.downcast_ref::<gtk::Image>() {
-            Self::fix_image_icon(image);
-        }
-        
-        // Check if this widget is a Button with an icon
-        if let Some(button) = widget.downcast_ref::<gtk::Button>() {
-            Self::fix_button_icon(button);
-        }
-        
-        // Recursively scan child widgets
-        let mut child = widget.first_child();
-        while let Some(current_child) = child {
-            Self::scan_and_fix_widget_icons(&current_child);
-            child = current_child.next_sibling();
-        }
-    }
-    
-    /// Fix a specific image widget
-    fn fix_image_icon(image: &gtk::Image) {
-        
-        // Check what kind of image this is and if it needs fixing
-        match image.storage_type() {
-            gtk::ImageType::IconName => {
-                if let Some(icon_name) = image.icon_name() {
-                    if Self::should_fix_icon(&icon_name) {
-                        info!("🎨 Fixing image icon: {}", icon_name);
-                                                 if let Some(texture) = Self::create_icon_texture(&icon_name) {
-                             image.set_paintable(Some(&texture));
-                         }
-                    }
-                }
-            }
-            gtk::ImageType::Gicon => {
-                if let Some(gicon) = image.gicon() {
-                    if let Some(themed_icon) = gicon.downcast_ref::<gtk::gio::ThemedIcon>() {
-                        let names = themed_icon.names();
-                        for name in names {
-                            if Self::should_fix_icon(&name) {
-                                info!("🎨 Fixing GIcon: {}", name);
-                                                                 if let Some(texture) = Self::create_icon_texture(&name) {
-                                     image.set_paintable(Some(&texture));
-                                     break;
-                                 }
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    
-    /// Fix a specific button widget
-    fn fix_button_icon(button: &gtk::Button) {
-        
-        if let Some(icon_name) = button.icon_name() {
-            if Self::should_fix_icon(&icon_name) {
-                info!("🎨 Fixing button icon: {}", icon_name);
-                crate::icon_renderer::IconRenderer::set_button_icon_programmatic(button, &icon_name);
-            }
-        }
-    }
-    
-    /// Check if an icon should be fixed
-    fn should_fix_icon(icon_name: &str) -> bool {
-        matches!(icon_name,
-            "io.bassi.Amberol" |
-            "io.bassi.Amberol.Devel" |
-            "web-browser-symbolic" |
-            "user-home-symbolic" |
-            "document-edit-symbolic" |
-            "bug-symbolic" |
-            "system-search-symbolic" |
-            "open-menu-symbolic" |
-            "image-missing"
-        )
-    }
-    
-    /// Create a texture for a specific icon name
-    fn create_icon_texture(icon_name: &str) -> Option<gdk::Texture> {
-        if let Some(mut surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(24) {
-            // Draw the specific icon on the surface
-            if let Ok(cr) = gtk::cairo::Context::new(&surface) {
-                cr.set_source_rgba(0.2, 0.2, 0.2, 1.0);
-                
-                let success = match icon_name {
-                    "io.bassi.Amberol" | "io.bassi.Amberol.Devel" => Self::draw_musical_note(&cr),
-                    "web-browser-symbolic" | "user-home-symbolic" => Self::draw_globe(&cr),
-                    "bug-symbolic" | "document-edit-symbolic" => Self::draw_bug(&cr),
-                    _ => false,
-                };
-                
-                if success {
-                    // Convert to texture
-                    let width = surface.width();
-                    let height = surface.height();
-                    let stride = surface.stride();
-                    
-                    if let Ok(data) = surface.data() {
-                        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_bytes(
-                            &glib::Bytes::from(&data[..]),
-                            gtk::gdk_pixbuf::Colorspace::Rgb,
-                            true, // has_alpha
-                            8,    // bits_per_sample
-                            width,
-                            height,
-                            stride,
-                        );
-                        
-                        return Some(gdk::Texture::for_pixbuf(&pixbuf));
-                    }
-                }
-            }
-        }
-        None
-    }
-    
-    /// Draw a musical note
-    fn draw_musical_note(cr: &gtk::cairo::Context) -> bool {
-        // Simple musical note
-        cr.arc(4.0, 16.0, 3.0, 0.0, 2.0 * std::f64::consts::PI);
-        cr.fill().unwrap_or(());
-        cr.arc(14.0, 12.0, 2.5, 0.0, 2.0 * std::f64::consts::PI);
-        cr.fill().unwrap_or(());
-        cr.move_to(7.0, 16.0);
-        cr.line_to(7.0, 4.0);
-        cr.line_to(16.5, 2.0);
-        cr.line_to(16.5, 12.0);
-        cr.stroke().unwrap_or(());
-        true
-    }
-    
-    /// Draw a globe icon
-    fn draw_globe(cr: &gtk::cairo::Context) -> bool {
-        // Simple globe
-        cr.arc(12.0, 12.0, 8.0, 0.0, 2.0 * std::f64::consts::PI);
-        cr.stroke().unwrap_or(());
-        cr.move_to(12.0, 4.0);
-        cr.line_to(12.0, 20.0);
-        cr.stroke().unwrap_or(());
-        cr.move_to(4.0, 12.0);
-        cr.line_to(20.0, 12.0);
-        cr.stroke().unwrap_or(());
-        true
-    }
-    
-    /// Draw a bug icon
-    fn draw_bug(cr: &gtk::cairo::Context) -> bool {
-        // Simple bug
-        cr.arc(12.0, 12.0, 6.0, 0.0, 2.0 * std::f64::consts::PI);
-        cr.stroke().unwrap_or(());
-        // Legs
-        for i in 0..3 {
-            let y = 8.0 + i as f64 * 3.0;
-            cr.move_to(6.0, y);
-            cr.line_to(2.0, y - 1.0);
-            cr.move_to(18.0, y);
-            cr.line_to(22.0, y - 1.0);
-            cr.stroke().unwrap_or(());
-        }
-        true
     }
 
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]

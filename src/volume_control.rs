@@ -8,8 +8,6 @@ use glib::clone;
 use gtk::{gio, glib, prelude::*, CompositeTemplate};
 use log::debug;
 
-use crate::icon_renderer::IconRenderer;
-
 mod imp {
     use glib::{subclass::Signal, ParamSpec, ParamSpecBoolean, ParamSpecDouble, Value};
     use once_cell::sync::Lazy;
@@ -147,9 +145,9 @@ impl VolumeControl {
             clone!(@strong self as this => move |adj, _| {
                 let value = adj.value();
                 if value == adj.lower() {
-                                IconRenderer::set_button_icon_programmatic(&this.imp().volume_low_button, "audio-volume-muted-symbolic");
-        } else {
-            IconRenderer::set_button_icon_programmatic(&this.imp().volume_low_button, "audio-volume-low-symbolic");
+                    this.imp().volume_low_button.set_icon_name("audio-volume-muted-symbolic");
+                } else {
+                    this.imp().volume_low_button.set_icon_name("audio-volume-low-symbolic");
                 }
                 this.notify("volume");
                 this.emit_by_name::<()>("volume-changed", &[&value]);
