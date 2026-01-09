@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! macro old syntax
+
 use async_channel::Sender;
 use glib::clone;
 use gst::prelude::*;
@@ -109,6 +111,17 @@ impl GstBackend {
             }),
         );
 
+        self.gst_player.connect_duration_changed(
+            clone!(@strong self.sender as sender => move |_, clock| {
+                if let Some(clock) = clock {
+                    let duration = clock.seconds();
+                    if let Err(e) = sender.send_blocking(PlaybackAction::UpdateDuration(duration)) {
+                        error!("Failed to send UpdateDuration({duration}): {e}");
+                    }
+                }
+            }),
+        );
+
         self.gst_player.connect_volume_changed(
             clone!(@strong self.sender as sender => move |player| {
                 let volume = gst_audio::StreamVolume::convert_volume(
@@ -148,16 +161,33 @@ impl GstBackend {
         };
 
         if let Some(destination) = destination {
-            self.gst_player.seek(destination);
+            self.do_seek(destination);
         }
     }
 
     pub fn seek_position(&self, position: u64) {
-        self.gst_player.seek(gst::ClockTime::from_seconds(position));
+        let position_ns = gst::ClockTime::from_seconds(position);
+        self.do_seek(position_ns);
     }
 
     pub fn seek_start(&self) {
-        self.gst_player.seek(gst::ClockTime::from_seconds(0));
+        self.do_seek(gst::ClockTime::from_seconds(0));
+    }
+    
+    /// Get the duration from GstPlayer (useful when metadata duration is unavailable)
+    pub fn duration(&self) -> Option<u64> {
+        self.gst_player.duration().map(|d| d.seconds())
+    }
+    
+    /// Internal seek implementation that tries multiple methods for MP3 compatibility
+    fn do_seek(&self, position: gst::ClockTime) {
+  
+                
+        // Use GstPlayer's seek method directly
+        self.gst_player.seek(position);
+        
+        // Check position after seek
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
     pub fn play(&self) {

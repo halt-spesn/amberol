@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! macro old syntax
+
 use std::{
     cell::RefCell,
     fmt::{self, Display, Formatter},
@@ -21,6 +23,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum PlaybackAction {
     Play,
     Pause,
@@ -29,6 +32,7 @@ pub enum PlaybackAction {
     SkipNext,
 
     UpdatePosition(u64),
+    UpdateDuration(u64),
     VolumeChanged(f64),
     Repeat(RepeatMode),
     Seek(u64),
@@ -181,6 +185,7 @@ impl AudioPlayer {
             PlaybackAction::SkipPrevious => self.skip_previous(),
             PlaybackAction::SkipNext => self.skip_next(),
             PlaybackAction::UpdatePosition(pos) => self.update_position(pos),
+            PlaybackAction::UpdateDuration(dur) => self.update_duration(dur),
             PlaybackAction::VolumeChanged(vol) => self.update_volume(vol),
             PlaybackAction::PlayNext => self.play_next(),
             PlaybackAction::Raise => self.present(),
@@ -430,7 +435,15 @@ impl AudioPlayer {
     }
 
     pub fn seek_position_rel(&self, position: f64) {
-        let duration = self.state.duration() as f64;
+        // Get duration from state, but fallback to GstPlayer duration for formats
+        // where metadata duration isn't available (like some MP3 files)
+        let state_duration = self.state.duration();
+        let duration = if state_duration == 0 {
+            self.backend.duration().unwrap_or(0)
+        } else {
+            state_duration
+        } as f64;
+        
         let pos = (duration * position).clamp(0.0, duration);
         self.backend.seek_position(pos as u64);
     }
@@ -462,6 +475,11 @@ impl AudioPlayer {
         for c in &self.controllers {
             c.set_position(position);
         }
+    }
+
+    fn update_duration(&self, duration: u64) {
+        // Update GStreamer-detected duration (used when metadata duration is unavailable)
+        self.state.set_gst_duration(duration);
     }
 
     fn update_volume(&self, volume: f64) {

@@ -4,27 +4,25 @@
 #[cfg(target_os = "windows")]
 pub mod windows_tray {
     use gtk::{glib, prelude::*};
-    use log::{info, warn, error};
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    use crate::icon_renderer::IconRenderer;
+    use log::{info, warn};
+    use crate::i18n::i18n;
     use windows::Win32::{
-        Foundation::{HWND, LPARAM, LRESULT, WPARAM, HINSTANCE, POINT},
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM, POINT},
         Graphics::Gdi::HBRUSH,
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             Shell::{
                 Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, 
-                NIM_MODIFY, NOTIFYICONDATAW,
+                NOTIFYICONDATAW,
             },
             WindowsAndMessaging::{
                 CreateWindowExW, DefWindowProcW, DestroyIcon, DestroyWindow, LoadCursorW, PostQuitMessage, 
                 RegisterClassExW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, IDC_ARROW, 
                 WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_RBUTTONUP, WNDCLASSEXW, 
                 WS_OVERLAPPEDWINDOW, HICON, LoadIconW, IDI_APPLICATION, WINDOW_EX_STYLE,
-                HMENU, LoadImageW, IMAGE_ICON, LR_LOADFROMFILE,
+                HMENU,
                 CreatePopupMenu, AppendMenuW, TrackPopupMenu, DestroyMenu, SetForegroundWindow,
-                MF_STRING, TPM_RIGHTBUTTON, TPM_RETURNCMD, WM_COMMAND, GetCursorPos,
+                MF_STRING, TPM_RIGHTBUTTON, WM_COMMAND, GetCursorPos,
             },
         },
     };
@@ -139,8 +137,9 @@ pub mod windows_tray {
                     ..Default::default()
                 };
                 
-                // Set tooltip text
-                let tooltip = "Amberol - Click to restore";
+                // Set tooltip text (translated)
+                // Translators: Tooltip shown when hovering over the system tray icon
+                let tooltip = i18n("Amberol – Click to restore");
                 let tooltip_wide: Vec<u16> = tooltip.encode_utf16().collect();
                 let len = std::cmp::min(tooltip_wide.len(), nid.szTip.len() - 1);
                 nid.szTip[..len].copy_from_slice(&tooltip_wide[..len]);
@@ -232,9 +231,13 @@ pub mod windows_tray {
                 }
             };
             
-            // Add menu items
-            let restore_text: Vec<u16> = "Show Amberol\0".encode_utf16().collect();
-            let quit_text: Vec<u16> = "Quit\0".encode_utf16().collect();
+            // Add menu items with translations
+            // Translators: Context menu item to show/restore the Amberol window
+            let restore_str = i18n("Show Amberol");
+            let restore_text: Vec<u16> = format!("{}\0", restore_str).encode_utf16().collect();
+            // Translators: Context menu item to quit the application
+            let quit_str = i18n("Quit");
+            let quit_text: Vec<u16> = format!("{}\0", quit_str).encode_utf16().collect();
             
             let _ = AppendMenuW(hmenu, MF_STRING, 1001, windows::core::PCWSTR(restore_text.as_ptr()));
             let _ = AppendMenuW(hmenu, MF_STRING, 1002, windows::core::PCWSTR(quit_text.as_ptr()));

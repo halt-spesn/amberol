@@ -154,6 +154,7 @@ pub fn is_audio_file(info: &gio::FileInfo) -> bool {
 }
 
 /// Check if a file is an image file (to explicitly exclude)
+#[allow(dead_code)]
 fn is_image_file_by_extension(info: &gio::FileInfo) -> bool {
     const IMAGE_EXTENSIONS: &[&str] = &[
         "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico", "svg",

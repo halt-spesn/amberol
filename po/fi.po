@@ -469,6 +469,20 @@ msgstr[1] "{} kappaletta valittu"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Toistetaan kappale “{title}” esittäjältä “{artist}”"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Näytä Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Lopeta"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Napsauta palauttaaksesi"
 #~ msgid "_Track"
 #~ msgstr "_Kappale"
 

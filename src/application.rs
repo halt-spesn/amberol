@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! macro old syntax
+
 use std::{cell::RefCell, rc::Rc};
 
 use adw::subclass::prelude::*;
@@ -15,7 +17,6 @@ use crate::{
     audio::AudioPlayer,
     config::{APPLICATION_ID, VERSION},
     i18n::i18n,
-    utils,
     window::Window,
     system_tray::SystemTray,
 };
@@ -63,6 +64,7 @@ mod imp {
     
     impl Application {
         fn create_settings_with_fallback() -> gio::Settings {
+            #[allow(unused_imports)]
             use gio::prelude::*;
             
             // Check if the schema exists before trying to create Settings

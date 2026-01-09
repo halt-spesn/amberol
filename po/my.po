@@ -455,3 +455,18 @@ msgstr[0] "သီချင်း {}ပုဒ် ရွေးထားသည်"
 #: src/window.rs:1392
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "လက်ရှိတွင် “{artist}”သီဆိုသော “{title}”ကို ဖွင့်ထားသည်"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Amberol ပရန"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "ထကရန"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – ပနလညရယရန နပပ"

@@ -10,16 +10,8 @@ fn main() {
     
     // Only generate icons for Windows builds
     if cfg!(target_os = "windows") {
-        // Use appropriate linker arguments based on the target
-        if cfg!(target_env = "msvc") {
-            // MSVC linker - compile and link resource file
-            println!("cargo:rustc-link-arg=/SUBSYSTEM:WINDOWS");
-            compile_resource_file();
-        } else {
-            // MinGW/GNU linker - compile and link resource file
-            println!("cargo:rustc-link-arg=-Wl,--subsystem,windows");
-            compile_resource_file();
-        }
+        // Compile Windows resource file for icon embedding
+        compile_resource_file();
         
         // Use the existing ICO file or generate one if it doesn't exist
         let ico_source = "data/icons/hicolor/scalable/apps/io.bassi.Amberol.ico";
@@ -34,19 +26,17 @@ fn main() {
                     println!("cargo:warning=Failed to generate fallback app icon: {}", e);
                 });
             } else {
-                println!("cargo:warning=Using existing app icon: {}", ico_source);
+                // Successfully copied - these are informational, not warnings
                 
                 // Also copy to target directory for runtime access
                 let target_dir = std::env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string());
                 let runtime_ico = format!("{}/io.bassi.Amberol.ico", target_dir);
                 let _ = std::fs::copy(ico_source, &runtime_ico);
-                println!("cargo:warning=Copied ICO to runtime location: {}", runtime_ico);
                 
                 // Copy to the final output directory as well
                 if let Ok(profile) = std::env::var("PROFILE") {
                     let output_ico = format!("target/{}/io.bassi.Amberol.ico", profile);
                     let _ = std::fs::copy(ico_source, &output_ico);
-                    println!("cargo:warning=Copied ICO to output directory: {}", output_ico);
                 }
             }
         } else {
@@ -206,7 +196,7 @@ fn compile_resource_file() {
                 // Only add the link argument if compilation was successful
                 if std::path::Path::new(output_file).exists() {
                     println!("cargo:rustc-link-arg={}", output_file);
-                    println!("cargo:warning=Successfully compiled and linked resource file: {}", output_file);
+                    // Success - no need to print warning
                 } else {
                     println!("cargo:warning=Resource compilation reported success but {} not found", output_file);
                 }

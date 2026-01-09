@@ -464,3 +464,18 @@ msgstr "Amberol þarf að keyra í bakgrunni til að geta spilað tónlist"
 #: src/window.rs:1373
 msgid "Amberol cannot run in the background"
 msgstr "Amberol getur ekki keyrt í bakgrunni"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Sýna Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Hætta"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Smelltu til að endurheimta"

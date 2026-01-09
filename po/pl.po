@@ -478,3 +478,18 @@ msgstr[2] "Zaznaczono {} utworów"
 #: src/window.rs:1353
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Odtwarzanie utworu „{title}” — {artist}"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Pokaż Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Zakończ"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Kliknij, aby przywrócić"

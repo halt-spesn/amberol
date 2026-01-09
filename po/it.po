@@ -461,6 +461,20 @@ msgstr[1] "{} brani selezionati"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "“{title}” di “{artist}” in riproduzione"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Mostra Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Esci"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Clicca per ripristinare"
 #~ msgid "_Track"
 #~ msgstr "_Brano"
 

@@ -20,6 +20,7 @@ mod imp {
     pub struct PlayerState {
         pub playback_state: Cell<PlaybackState>,
         pub position: Cell<u64>,
+        pub gst_duration: Cell<u64>,
         pub current_song: RefCell<Option<Song>>,
         pub volume: Cell<f64>,
     }
@@ -33,6 +34,7 @@ mod imp {
             Self {
                 playback_state: Cell::new(PlaybackState::Stopped),
                 position: Cell::new(0),
+                gst_duration: Cell::new(0),
                 current_song: RefCell::new(None),
                 volume: Cell::new(1.0),
             }
@@ -119,10 +121,14 @@ impl PlayerState {
 
     pub fn duration(&self) -> u64 {
         if let Some(song) = &*self.imp().current_song.borrow() {
-            return song.duration();
+            let song_duration = song.duration();
+            if song_duration > 0 {
+                return song_duration;
+            }
         }
-
-        0
+        // Fallback to GStreamer-detected duration for formats where
+        // metadata duration isn't available (like some MP3 files)
+        self.imp().gst_duration.get()
     }
 
     pub fn cover(&self) -> Option<gdk::Texture> {
@@ -155,6 +161,7 @@ impl PlayerState {
     pub fn set_current_song(&self, song: Option<Song>) {
         self.imp().current_song.replace(song);
         self.imp().position.replace(0);
+        self.imp().gst_duration.replace(0); // Reset GStreamer duration for new song
         self.notify("song");
         self.notify("title");
         self.notify("artist");
@@ -162,6 +169,13 @@ impl PlayerState {
         self.notify("duration");
         self.notify("cover");
         self.notify("position");
+    }
+
+    pub fn set_gst_duration(&self, duration: u64) {
+        let old = self.imp().gst_duration.replace(duration);
+        if old != duration {
+            self.notify("duration");
+        }
     }
 
     pub fn position(&self) -> u64 {

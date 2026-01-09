@@ -459,3 +459,18 @@ msgstr[1] "{} गाने चयनित"
 #: src/window.rs:1392
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "अभी \"{artist}\" द्वारा \"{title}\" बजाया जा रहा है"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Amberol दखए"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "बहर नकल"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – पनरसथपत करन क लए कलक कर"

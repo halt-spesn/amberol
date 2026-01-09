@@ -476,3 +476,18 @@ msgstr "\"%s\" पृष्ठभूमिमा चलिरहेको छ"
 #, fuzzy
 msgid "Amberol cannot run in the background"
 msgstr "पृष्ठभूमि मा चलाउनुहोस्"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Amberol दखउनहस"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "बहर नसकनहस"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – पनरसथपन गरन कलक गरनहस"

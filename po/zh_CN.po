@@ -460,6 +460,20 @@ msgstr[0] "已选择 {} 首歌曲"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "当前正在播放“{artist}”的“{title}”"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "显示 Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "退出"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – 点击恢复"
 #~ msgid "_Cancel"
 #~ msgstr "取消(_C)"
 

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! and closure_local! macro old syntax
+
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -478,29 +480,72 @@ impl Window {
     }
 
     fn add_song(&self) {
-        let ctx = glib::MainContext::default();
-        ctx.spawn_local(clone!(@weak self as win => async move {
-            let filters = gio::ListStore::new::<gtk::FileFilter>();
-            let filter = gtk::FileFilter::new();
-            gtk::FileFilter::set_name(&filter, Some(&i18n("Audio files")));
-            filter.add_mime_type("audio/*");
-            filters.append(&filter);
-
-            let dialog = gtk::FileDialog::builder()
-                .accept_label(i18n("_Add Song"))
-                .filters(&filters)
-                .modal(true)
-                .title(i18n("Open File"))
-                .build();
-
-            if let Ok(files) = dialog.open_multiple_future(Some(&win)).await {
-                if files.n_items() == 0 {
-                    win.add_toast(i18n("Unable to access files"));
-                } else {
-                    win.add_files_to_queue(&files);
+        // On Windows, use native file picker for better compatibility
+        #[cfg(target_os = "windows")]
+        {
+            // Use a channel to communicate between threads
+            let (tx, rx) = std::sync::mpsc::channel::<Vec<std::path::PathBuf>>();
+            
+            // Spawn the file picker in a separate thread since it blocks
+            std::thread::spawn(move || {
+                if let Some(paths) = show_windows_file_picker() {
+                    let _ = tx.send(paths);
                 }
-            }
-        }));
+            });
+            
+            // Clone self to use in idle callback
+            let win = self.clone();
+            
+            // Check for results periodically on the main thread
+            glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
+                match rx.try_recv() {
+                    Ok(paths) => {
+                        let store = gio::ListStore::new::<gio::File>();
+                        for path in paths {
+                            store.append(&gio::File::for_path(&path));
+                        }
+                        win.add_files_to_queue(store.upcast_ref::<gio::ListModel>());
+                        glib::ControlFlow::Break
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        // Keep waiting
+                        glib::ControlFlow::Continue
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        // Channel closed, dialog was cancelled
+                        glib::ControlFlow::Break
+                    }
+                }
+            });
+            return;
+        }
+        
+        #[cfg(not(target_os = "windows"))]
+        {
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local(clone!(@weak self as win => async move {
+                let filters = gio::ListStore::new::<gtk::FileFilter>();
+                let filter = gtk::FileFilter::new();
+                gtk::FileFilter::set_name(&filter, Some(&i18n("Audio files")));
+                filter.add_mime_type("audio/*");
+                filters.append(&filter);
+
+                let dialog = gtk::FileDialog::builder()
+                    .accept_label(i18n("_Add Song"))
+                    .filters(&filters)
+                    .modal(true)
+                    .title(i18n("Open File"))
+                    .build();
+
+                if let Ok(files) = dialog.open_multiple_future(Some(&win)).await {
+                    if files.n_items() == 0 {
+                        win.add_toast(i18n("Unable to access files"));
+                    } else {
+                        win.add_files_to_queue(&files);
+                    }
+                }
+            }));
+        }
     }
 
     fn add_folder(&self) {
@@ -1522,5 +1567,104 @@ impl Window {
 
     pub fn set_song_position(&self, position: f64) {
         self.imp().waveform_view.set_position(position);
+    }
+}
+
+// Windows native file picker - separate function to avoid Send/Sync issues
+#[cfg(target_os = "windows")]
+fn show_windows_file_picker() -> Option<Vec<std::path::PathBuf>> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use std::ptr;
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoUninitialize,
+        CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+    };
+    use windows::Win32::UI::Shell::{
+        IFileOpenDialog, FileOpenDialog,
+        FOS_ALLOWMULTISELECT, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM,
+        SIGDN_FILESYSPATH,
+    };
+    use windows::Win32::UI::Shell::Common::COMDLG_FILTERSPEC;
+
+    unsafe {
+        let _ = CoInitializeEx(Some(ptr::null()), COINIT_APARTMENTTHREADED);
+
+        let dialog: IFileOpenDialog = match CoCreateInstance(
+            &FileOpenDialog,
+            None,
+            CLSCTX_INPROC_SERVER,
+        ) {
+            Ok(d) => d,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        // Set options for multiple selection
+        if let Ok(options) = dialog.GetOptions() {
+            let _ = dialog.SetOptions(options | FOS_ALLOWMULTISELECT | FOS_FILEMUSTEXIST | FOS_FORCEFILESYSTEM);
+        }
+
+        // Set file filter for audio files
+        let filter_name: Vec<u16> = "Audio Files\0".encode_utf16().collect();
+        let filter_pattern: Vec<u16> = "*.mp3;*.flac;*.ogg;*.wav;*.m4a;*.aac;*.wma;*.opus;*.aiff;*.ape;*.wv\0".encode_utf16().collect();
+        
+        let filter = COMDLG_FILTERSPEC {
+            pszName: PCWSTR(filter_name.as_ptr()),
+            pszSpec: PCWSTR(filter_pattern.as_ptr()),
+        };
+        
+        let _ = dialog.SetFileTypes(&[filter]);
+
+        // Set title
+        let title: Vec<u16> = "Select Audio Files\0".encode_utf16().collect();
+        let _ = dialog.SetTitle(PCWSTR(title.as_ptr()));
+
+        // Show dialog
+        if dialog.Show(None).is_err() {
+            CoUninitialize();
+            return None;
+        }
+
+        // Get results
+        let results = match dialog.GetResults() {
+            Ok(r) => r,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let count = match results.GetCount() {
+            Ok(c) => c,
+            Err(_) => {
+                CoUninitialize();
+                return None;
+            }
+        };
+
+        let mut paths = Vec::new();
+        for i in 0..count {
+            if let Ok(item) = results.GetItemAt(i) {
+                if let Ok(path_ptr) = item.GetDisplayName(SIGDN_FILESYSPATH) {
+                    let len = (0..).take_while(|&i| *path_ptr.0.add(i) != 0).count();
+                    let slice = std::slice::from_raw_parts(path_ptr.0, len);
+                    let path_str = OsString::from_wide(slice);
+                    paths.push(std::path::PathBuf::from(path_str));
+                    windows::Win32::System::Com::CoTaskMemFree(Some(path_ptr.0 as *const _));
+                }
+            }
+        }
+
+        CoUninitialize();
+        
+        if paths.is_empty() {
+            None
+        } else {
+            Some(paths)
+        }
     }
 }

@@ -467,6 +467,20 @@ msgstr[0] "{} lagu dipilih"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Sedang memutar \"{title}\" oleh \"{artist}\""
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Tampilkan Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Keluar"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Klik untuk memulihkan"
 #~ msgid "_Track"
 #~ msgstr "_Trek"
 

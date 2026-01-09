@@ -121,6 +121,14 @@ if exist "%MSYS2_PATH%\mingw64\lib\gstreamer-1.0" (
     xcopy "%MSYS2_PATH%\mingw64\lib\gstreamer-1.0" "%LIB%\gstreamer-1.0\" /E /I /Y /Q >nul
 )
 
+REM Copy GStreamer helper executables (needed for plugin scanning)
+echo Copying GStreamer helpers...
+if not exist "%LIB%\gstreamer-1.0\helpers" mkdir "%LIB%\gstreamer-1.0\helpers"
+if exist "%MSYS2_PATH%\mingw64\libexec\gstreamer-1.0\gst-plugin-scanner.exe" (
+    copy /y "%MSYS2_PATH%\mingw64\libexec\gstreamer-1.0\gst-plugin-scanner.exe" "%LIB%\gstreamer-1.0\helpers\" >nul
+    echo   gst-plugin-scanner.exe copied.
+)
+
 REM Copy GLib schemas from MSYS2
 echo Copying GLib schemas...
 if exist "%MSYS2_PATH%\mingw64\share\glib-2.0\schemas" (
@@ -213,12 +221,32 @@ if exist "%MSYS2_PATH%\mingw64\share\locale" (
     xcopy "%MSYS2_PATH%\mingw64\share\locale" "%SHARE%\locale\" /E /I /Y /Q >nul
 )
 
+REM Compile Amberol translations from po/*.po to locale/*/LC_MESSAGES/amberol.mo
+echo Compiling Amberol translations...
+set "MSGFMT=%MSYS2_PATH%\mingw64\bin\msgfmt.exe"
+if exist "%MSGFMT%" (
+    for %%f in (po\*.po) do (
+        set "LANG=%%~nf"
+        setlocal enabledelayedexpansion
+        if not exist "%SHARE%\locale\!LANG!\LC_MESSAGES" mkdir "%SHARE%\locale\!LANG!\LC_MESSAGES"
+        "%MSGFMT%" -o "%SHARE%\locale\!LANG!\LC_MESSAGES\amberol.mo" "%%f"
+        if !ERRORLEVEL! EQU 0 (
+            echo   Compiled: !LANG!
+        ) else (
+            echo   WARNING: Failed to compile: !LANG!
+        )
+        endlocal
+    )
+) else (
+    echo WARNING: msgfmt not found, translations will not be available
+)
+
 REM Create portable launcher script (like CI does)
 echo Creating launcher script...
 (
 echo @echo off
 echo REM Amberol Portable - Self-Contained with All Dependencies
-echo setlocal
+echo setlocal EnableDelayedExpansion
 echo set AMBEROL_DIR=%%~dp0
 echo set PATH=%%AMBEROL_DIR%%bin;%%PATH%%
 echo set GST_PLUGIN_PATH=%%AMBEROL_DIR%%lib\gstreamer-1.0
@@ -230,10 +258,12 @@ echo set GDK_PIXBUF_MODULE_FILE=%%AMBEROL_DIR%%lib\gdk-pixbuf-2.0\2.10.0\loaders
 echo set GDK_PIXBUF_MODULEDIR=%%AMBEROL_DIR%%lib\gdk-pixbuf-2.0\2.10.0\loaders
 echo set GTK_DATA_PREFIX=%%AMBEROL_DIR%%
 echo set GTK_EXE_PREFIX=%%AMBEROL_DIR%%
+echo set GST_PLUGIN_SCANNER=%%AMBEROL_DIR%%lib\gstreamer-1.0\helpers\gst-plugin-scanner.exe
 echo set GSK_RENDERER=gl
 echo set GTK_USE_PORTAL=0
 echo set ADW_DISABLE_PORTAL=1
 echo set XDG_DATA_HOME=%%AMBEROL_DIR%%share
+echo set LOCALEDIR=%%AMBEROL_DIR%%share\locale
 echo "%%AMBEROL_DIR%%bin\amberol.exe" %%*
 echo endlocal
 ) > "%DIST%\amberol.bat"

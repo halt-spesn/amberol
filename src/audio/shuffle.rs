@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! macro old syntax
+
 use std::cell::RefCell;
 
 use glib::clone;

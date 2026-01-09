@@ -468,6 +468,20 @@ msgstr[2] "Vybráno {} skladeb"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Právě hraje “{title}” od “{artist}”"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Zobrazit Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Ukončit"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Klikněte pro obnovení"
 #~ msgid "_Track"
 #~ msgstr "_Stopa"
 

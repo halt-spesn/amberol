@@ -467,6 +467,20 @@ msgstr[1] "{} nummers geselecteerd"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "‘{title}’ door ‘{artist}’ aan het afspelen"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Amberol tonen"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Afsluiten"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Klik om te herstellen"
 #~ msgid "_Track"
 #~ msgstr "_Nummer"
 

@@ -3,16 +3,13 @@
 
 //! Desktop integration for icons, taskbar, and system tray
 
-use gtk::{gdk, gio, glib, prelude::*};
-use log::{info, warn};
-
-#[cfg(target_os = "windows")]
-use windows::Win32::{
-    Graphics::Gdi::*,
-    UI::WindowsAndMessaging::*,
-};
+use gtk::{gdk, glib, prelude::*};
+use log::info;
+#[allow(unused_imports)]
+use log::warn;
 
 /// Desktop integration manager for handling app icons and system integration
+#[allow(dead_code)]
 pub struct DesktopIntegration;
 
 impl DesktopIntegration {
@@ -88,18 +85,12 @@ impl DesktopIntegration {
         if let Some(mut icon_surface) = crate::icon_renderer::IconRenderer::create_app_icon_surface(48) {
             // Convert to GdkTexture for GTK4
             let pixbuf = Self::surface_to_pixbuf(&mut icon_surface);
-            let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+            let _texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
             
             // Set as default icon for all windows
             for window in app.windows() {
                 if let Some(gtk_window) = window.downcast_ref::<gtk::Window>() {
                     info!("🎯 Setting taskbar icon for window: {:?}", gtk_window.title());
-                    
-                    // Method 1: Try setting the icon directly via paintable
-                    if let Some(paintable) = Some(&texture).map(|t| t.upcast_ref::<gdk::Paintable>()) {
-                        // Unfortunately GTK4 doesn't have set_icon method, but we can try other approaches
-                        info!("✅ Created paintable for window icon");
-                    }
                     
                     // Method 2: Set programmatic icon name after ensuring it exists in theme
                     let icon_theme = gtk::IconTheme::for_display(&gtk::prelude::WidgetExt::display(gtk_window));
@@ -130,7 +121,7 @@ impl DesktopIntegration {
                     }
                     
                     #[cfg(target_os = "windows")]
-                    Self::set_windows_taskbar_icon(gtk_window, &texture);
+                    Self::set_windows_taskbar_icon(gtk_window, &_texture);
                 }
             }
             
@@ -193,6 +184,7 @@ impl DesktopIntegration {
     }
     
     /// Create application icon at multiple sizes for desktop files
+    #[allow(dead_code)]
     pub fn generate_desktop_icons() -> Result<(), Box<dyn std::error::Error>> {
         info!("🖥️ Generating desktop icons");
         

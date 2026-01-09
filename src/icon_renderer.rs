@@ -4,14 +4,19 @@
 //! Programmatic icon rendering for reliable cross-platform display
 //! This module creates icons using Cairo drawing instead of SVG files
 
-use gtk::{cairo, gdk, prelude::*};
-use log::{info, warn};
+use gtk::{cairo, prelude::*};
+#[allow(unused_imports)]
+use gtk::gdk;
+use log::info;
+#[allow(unused_imports)]
+use log::warn;
 
 const ICON_SIZE: i32 = 16;
 const ICON_COLOR: (f64, f64, f64) = (0.18, 0.20, 0.21); // #2e3436 in RGB
 
 pub struct IconRenderer;
 
+#[allow(dead_code)]
 impl IconRenderer {
     /// Check if an icon is supported for programmatic rendering
     pub fn supports_icon(icon_name: &str) -> bool {
@@ -434,7 +439,7 @@ impl IconRenderer {
             let hdc_mem = CreateCompatibleDC(hdc);
             
             // Create bitmap info
-            let mut bmi = BITMAPINFO {
+            let bmi = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: size,
@@ -464,8 +469,8 @@ impl IconRenderer {
             
             if hbm_color.is_invalid() || bits.is_null() {
                 warn!("Failed to create DIB section for tray icon");
-                ReleaseDC(None, hdc);
-                DeleteDC(hdc_mem);
+                let _ = ReleaseDC(None, hdc);
+                let _ = DeleteDC(hdc_mem);
                 return None;
             }
             
@@ -527,10 +532,10 @@ impl IconRenderer {
             let hicon = CreateIconIndirect(&icon_info).ok()?;
             
             // Cleanup
-            DeleteObject(hbm_color);
-            DeleteObject(hbm_mask);
-            DeleteDC(hdc_mem);
-            ReleaseDC(None, hdc);
+            let _ = DeleteObject(hbm_color);
+            let _ = DeleteObject(hbm_mask);
+            let _ = DeleteDC(hdc_mem);
+            let _ = ReleaseDC(None, hdc);
             
             if hicon.is_invalid() {
                 warn!("Failed to create Windows icon");
@@ -545,6 +550,7 @@ impl IconRenderer {
     /// Create tray icon from embedded ICO data
     #[cfg(target_os = "windows")]
     fn create_tray_icon_from_embedded() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        #[allow(unused_imports)]
         use windows::Win32::Graphics::Gdi::*;
         use windows::Win32::UI::WindowsAndMessaging::*;
         
@@ -596,6 +602,7 @@ impl IconRenderer {
     /// Convert Cairo surface to Windows HICON
     #[cfg(target_os = "windows")]
     fn surface_to_hicon(surface: &mut gtk::cairo::ImageSurface) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+        #[allow(unused_imports)]
         use windows::Win32::Graphics::Gdi::*;
         use windows::Win32::UI::WindowsAndMessaging::*;
         
@@ -652,7 +659,7 @@ impl IconRenderer {
         
         for &size in &sizes {
             // Create surface for this size
-            if let Some(surface) = Self::create_app_icon_surface(size) {
+            if let Some(_surface) = Self::create_app_icon_surface(size) {
                 // Convert Cairo surface to raw bitmap data (simplified)
                 let png_data = vec![0u8; (size * size * 4) as usize]; // Placeholder data
                 
@@ -692,7 +699,7 @@ impl IconRenderer {
         
         // Also create PNG versions for other platforms
         for &size in &[16, 32, 48, 64, 128, 256] {
-            if let Some(surface) = Self::create_app_icon_surface(size) {
+            if let Some(_surface) = Self::create_app_icon_surface(size) {
                 let filename = format!("amberol-{}x{}.png", size, size);
                 // PNG writing would require cairo-rs feature
                 info!("Would create {}", filename);
@@ -739,7 +746,7 @@ impl IconRenderer {
             let hdc = GetDC(None);
             let hdc_mem = CreateCompatibleDC(hdc);
             
-            let mut bmi = BITMAPINFO {
+            let bmi = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
                     biWidth: size,
@@ -760,8 +767,8 @@ impl IconRenderer {
             let hbm_color = CreateDIBSection(hdc_mem, &bmi, DIB_RGB_COLORS, &mut bits, None, 0).ok()?;
             
             if hbm_color.is_invalid() || bits.is_null() {
-                ReleaseDC(None, hdc);
-                DeleteDC(hdc_mem);
+                let _ = ReleaseDC(None, hdc);
+                let _ = DeleteDC(hdc_mem);
                 return None;
             }
             
@@ -801,10 +808,10 @@ impl IconRenderer {
             
             let hicon = CreateIconIndirect(&icon_info).ok()?;
             
-            DeleteObject(hbm_color);
-            DeleteObject(hbm_mask);
-            DeleteDC(hdc_mem);
-            ReleaseDC(None, hdc);
+            let _ = DeleteObject(hbm_color);
+            let _ = DeleteObject(hbm_mask);
+            let _ = DeleteDC(hdc_mem);
+            let _ = ReleaseDC(None, hdc);
             
             if hicon.is_invalid() { None } else { Some(hicon) }
         }

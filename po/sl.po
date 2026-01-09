@@ -486,3 +486,18 @@ msgstr[3] "{} izbrani posnetki"
 #: src/window.rs:1353
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Trenutno predvaja »{title}« ({artist})"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Prikaži Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Izhod"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Kliknite za obnovitev"

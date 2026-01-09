@@ -463,5 +463,19 @@ msgstr[0] "곡 {}개 선택함"
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "현재 재생중: “{title}” ― “{artist}”"
 
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Amberol 표시"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "종료"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – 복원하려면 클릭"
 #~ msgid "Add File"
 #~ msgstr "파일 추가"

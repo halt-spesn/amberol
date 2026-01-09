@@ -468,3 +468,18 @@ msgstr[2] "{} de melodii selectate"
 #: src/window.rs:1392
 msgid "Currently playing “{title}” by “{artist}”"
 msgstr "Acum se redă „{title}” de „{artist}”"
+
+#. Translators: Context menu item to show/restore the Amberol window
+#: src/system_tray.rs
+msgid "Show Amberol"
+msgstr "Afișează Amberol"
+
+#. Translators: Context menu item to quit the application
+#: src/system_tray.rs
+msgid "Quit"
+msgstr "Ieșire"
+
+#. Translators: Tooltip shown when hovering over the system tray icon
+#: src/system_tray.rs
+msgid "Amberol – Click to restore"
+msgstr "Amberol – Faceți clic pentru a restaura"

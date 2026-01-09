@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2022  Maximiliano Sandoval R <msandova@gnome.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(deprecated)] // clone! macro old syntax
+
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
 use crate::icon_renderer::IconRenderer;

@@ -1,31 +1,38 @@
 // SPDX-FileCopyrightText: 2022  Emmanuele Bassi
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::OnceCell,
     rc::Rc,
 };
 
+use std::cell::RefCell;
+
 use async_channel::Sender;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use glib::clone;
-use gtk::{gio, glib, prelude::*};
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use gtk::glib;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use log::error;
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use mpris_server::{LoopStatus, Metadata, PlaybackStatus, Player, Time};
 
-use crate::{
-    audio::{Controller, PlaybackAction, PlaybackState, RepeatMode, Song},
-    config::APPLICATION_ID,
-};
+use crate::audio::{Controller, PlaybackAction, PlaybackState, RepeatMode, Song};
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use crate::config::APPLICATION_ID;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct MprisController {
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     mpris: Rc<OnceCell<Player>>,
     song: RefCell<Option<Song>>,
 }
 
+#[allow(dead_code)]
 impl MprisController {
     pub fn new(sender: Sender<PlaybackAction>) -> Self {
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
