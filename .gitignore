@@ -5,3 +5,4 @@ src/config.rs
 target
 _build
 dist-windows
+dist-windows.zip
