@@ -480,6 +480,10 @@ impl AudioPlayer {
     fn update_duration(&self, duration: u64) {
         // Update GStreamer-detected duration (used when metadata duration is unavailable)
         self.state.set_gst_duration(duration);
+        
+        // FIXME: GStreamer resets the volume on URI change, so we need to
+        // restore it when the new stream is loaded.
+        self.backend.set_volume(self.state.volume());
     }
 
     fn update_volume(&self, volume: f64) {
