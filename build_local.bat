@@ -241,32 +241,6 @@ if exist "%MSGFMT%" (
     echo WARNING: msgfmt not found, translations will not be available
 )
 
-REM Create portable launcher script (like CI does)
-echo Creating launcher script...
-(
-echo @echo off
-echo REM Amberol Portable - Self-Contained with All Dependencies
-echo setlocal EnableDelayedExpansion
-echo set AMBEROL_DIR=%%~dp0
-echo set PATH=%%AMBEROL_DIR%%bin;%%PATH%%
-echo set GST_PLUGIN_PATH=%%AMBEROL_DIR%%lib\gstreamer-1.0
-echo set GST_PLUGIN_SYSTEM_PATH=%%AMBEROL_DIR%%lib\gstreamer-1.0
-echo set GST_REGISTRY=%%AMBEROL_DIR%%gst-registry.bin
-echo set GSETTINGS_SCHEMA_DIR=%%AMBEROL_DIR%%share\glib-2.0\schemas
-echo set XDG_DATA_DIRS=%%AMBEROL_DIR%%share
-echo set GDK_PIXBUF_MODULE_FILE=%%AMBEROL_DIR%%lib\gdk-pixbuf-2.0\2.10.0\loaders.cache
-echo set GDK_PIXBUF_MODULEDIR=%%AMBEROL_DIR%%lib\gdk-pixbuf-2.0\2.10.0\loaders
-echo set GTK_DATA_PREFIX=%%AMBEROL_DIR%%
-echo set GTK_EXE_PREFIX=%%AMBEROL_DIR%%
-echo set GST_PLUGIN_SCANNER=%%AMBEROL_DIR%%lib\gstreamer-1.0\helpers\gst-plugin-scanner.exe
-echo set GSK_RENDERER=gl
-echo set GTK_USE_PORTAL=0
-echo set ADW_DISABLE_PORTAL=1
-echo set XDG_DATA_HOME=%%AMBEROL_DIR%%share
-echo set LOCALEDIR=%%AMBEROL_DIR%%share\locale
-echo "%%AMBEROL_DIR%%bin\amberol.exe" %%*
-echo endlocal
-) > "%DIST%\amberol.bat"
 
 echo.
 echo ===================================================
@@ -274,32 +248,10 @@ echo    BUILD SUMMARY
 echo ===================================================
 echo   Profile:     %PROFILE%
 echo   Executable:  %BIN%\amberol.exe
-echo   Launcher:    %DIST%\amberol.bat
 echo ===================================================
 echo.
 
 :skip_build
 
-REM Run if requested
-if "%RUN%"=="1" (
-    echo Launching Amberol...
-    echo.
-    
-    REM Use the launcher script which sets up all env vars properly
-    pushd "%DIST%"
-    call amberol.bat
-    popd
-    
-    echo.
-    echo Exit code: %ERRORLEVEL%
-    pause
-) else (
-    echo To run Amberol:
-    echo   cd %DIST% ^&^& amberol.bat
-    echo.
-    echo Or:
-    echo   build_local.bat run
-    echo.
-)
 
 endlocal
